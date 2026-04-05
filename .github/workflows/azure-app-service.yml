@@ -16,7 +16,16 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
+
+      - name: Validate Azure deployment secrets exist
+        env:
+          AZURE_APP_SERVICE_NAME: ${{ secrets.AZURE_APP_SERVICE_NAME }}
+          AZURE_WEBAPP_PUBLISH_PROFILE: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+        run: |
+          test -n "$AZURE_APP_SERVICE_NAME" || (echo "Missing secret: AZURE_APP_SERVICE_NAME" && exit 1)
+          test -n "$AZURE_WEBAPP_PUBLISH_PROFILE" || (echo "Missing secret: AZURE_WEBAPP_PUBLISH_PROFILE" && exit 1)
+          echo "Azure deployment secrets are present."
 
       - name: Validate app boots
         run: |
