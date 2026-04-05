@@ -32,9 +32,11 @@ const fileStatusText = document.querySelector("#fileStatusText");
 bootstrap();
 
 async function bootstrap() {
+  await resetDemoSession();
   await loadRulesets();
   await refreshInbox();
   bindEvents();
+  resetClientState();
 }
 
 function bindEvents() {
@@ -152,6 +154,35 @@ async function refreshInbox() {
   }
   inboxDraftsValue.textContent = String(state.inbox.length);
   renderInbox();
+}
+
+async function resetDemoSession() {
+  await fetch("/api/session/reset", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    }
+  });
+}
+
+function resetClientState() {
+  state.csvText = "";
+  state.evaluationResult = null;
+  state.inbox = [];
+  state.selectedOrderId = null;
+  csvFileInput.value = "";
+  generateOrdersButton.disabled = true;
+  exportReportButton.disabled = true;
+  totalRowsValue.textContent = "0";
+  ruleMatchesValue.textContent = "0";
+  inboxDraftsValue.textContent = "0";
+  runInsightValue.textContent = "Awaiting upload";
+  updateFileStatus(
+    "Fresh session ready",
+    "This page clears previous demo runs on load. Upload a CSV or load the sample data to begin."
+  );
+  resultsBody.innerHTML =
+    '<tr><td colspan="5" class="empty-state">Upload a CSV and run a ruleset to see patient recommendations.</td></tr>';
 }
 
 function renderEvaluation() {

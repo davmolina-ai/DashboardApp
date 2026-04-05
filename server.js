@@ -291,6 +291,11 @@ async function handleApi(req, res, url) {
     });
   }
 
+  if (req.method === "POST" && url.pathname === "/api/session/reset") {
+    resetSessionState();
+    return sendJson(res, 200, { ok: true });
+  }
+
   if (req.method === "POST" && url.pathname === "/api/evaluate") {
     const body = await readJson(req, res);
     if (!body) {
@@ -414,13 +419,17 @@ function sendJson(res, statusCode, payload) {
   const text = JSON.stringify(payload);
   res.writeHead(statusCode, {
     "Content-Type": "application/json; charset=utf-8",
-    "Content-Length": Buffer.byteLength(text)
+    "Content-Length": Buffer.byteLength(text),
+    "Cache-Control": "no-store"
   });
   res.end(text);
 }
 
 function sendText(res, statusCode, text) {
-  res.writeHead(statusCode, { "Content-Type": "text/plain; charset=utf-8" });
+  res.writeHead(statusCode, {
+    "Content-Type": "text/plain; charset=utf-8",
+    "Cache-Control": "no-store"
+  });
   res.end(text);
 }
 
@@ -468,6 +477,11 @@ function findHeaderRowIndex(lines) {
     }
   }
   return -1;
+}
+
+function resetSessionState() {
+  inbox.length = 0;
+  nextOrderId = 1;
 }
 
 function splitCsvLine(line) {
