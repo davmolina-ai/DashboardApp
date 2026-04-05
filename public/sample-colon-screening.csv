@@ -1,0 +1,6 @@
+CDCR#,Last Name,First Name,Age,SOMS Gender Identity,SOMS Race,Clinical Risk Level,MH LOC,DPP,DDP,Cell,Bed,Care Team,Excluded from Screening,History of Positive,FIT Test Result,FIT Test Date,Other Screening Type,Other Screening Completed Date,Order Name,Order Due Date,Screened within Timeframes,Screening Due Date,Screening Refusal Date
+10021,Smith,John,58,Male,White,Medium,,,,,,Dr. Patel,No,No,Negative,2023-01-10,,,,,No,2026-04-30,2024-02-15
+10022,Garcia,Maria,49,Female,Hispanic,Low,,,,,,Dr. Robinson,No,No,,,Colonoscopy,2021-07-14,,,Yes,2026-08-12,
+10023,Johnson,Evelyn,72,Female,Black,High,,,,,,Dr. Nguyen,No,No,Negative,2022-11-03,,,,,No,2026-04-20,2023-01-02
+10024,Lee,Daniel,43,Male,Asian,Low,,,,,,Dr. Patel,No,No,,,,,,,No,2026-05-01,
+10025,Brown,Teresa,67,Female,Black,Medium,,,,,,Dr. Gomez,No,No,Negative,2021-12-03,,,,,No,2026-04-18,2025-11-01

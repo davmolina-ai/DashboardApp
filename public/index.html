@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dashboard to Orders</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="hero">
+        <div>
+          <p class="eyebrow">Health Informatics Demo</p>
+          <h1>Dashboard to Orders</h1>
+          <p class="hero-copy">
+            Convert population-health dashboard CSV exports into draft FHIR
+            ServiceRequest orders for provider review.
+          </p>
+        </div>
+        <div class="hero-card">
+          <div class="hero-stat">
+            <span class="label">Workflow</span>
+            <strong>Nurse upload -> rule evaluation -> provider inbox</strong>
+          </div>
+          <div class="hero-stat">
+            <span class="label">FHIR output</span>
+            <strong>Draft `ServiceRequest` preview</strong>
+          </div>
+        </div>
+      </header>
+
+      <main class="layout">
+        <section class="panel">
+          <div class="panel-header">
+            <div>
+              <p class="section-kicker">Nurse / Quality Workflow</p>
+              <h2>Bulk run + draft order generation</h2>
+              <p class="panel-copy">
+                Upload a dashboard export, choose a clinical rule, and review which
+                patients should receive draft orders before sending them to the provider queue.
+              </p>
+            </div>
+            <button id="loadSampleButton" class="secondary-button">
+              Load sample CSV
+            </button>
+          </div>
+
+          <section class="workflow-steps" aria-label="Workflow overview">
+            <article class="step-card active">
+              <span class="step-number">1</span>
+              <strong>Upload dashboard</strong>
+              <p>Import a quality registry or screening export from outside the EHR.</p>
+            </article>
+            <article class="step-card">
+              <span class="step-number">2</span>
+              <strong>Apply rule logic</strong>
+              <p>Use a clinical ruleset to identify gaps and recommend the next action.</p>
+            </article>
+            <article class="step-card">
+              <span class="step-number">3</span>
+              <strong>Route draft orders</strong>
+              <p>Send draft FHIR orders into the provider review queue with rationale.</p>
+            </article>
+          </section>
+
+          <div class="form-grid">
+            <label class="field">
+              <span>Dashboard name</span>
+              <input id="dashboardNameInput" type="text" value="Colon Cancer Screening Dashboard" />
+            </label>
+
+            <label class="field">
+              <span>Ruleset</span>
+              <select id="rulesetSelect"></select>
+            </label>
+
+            <label class="field field-file">
+              <span>Upload CSV</span>
+              <input id="csvFileInput" type="file" accept=".csv,text/csv" />
+            </label>
+          </div>
+
+          <section class="context-grid">
+            <article class="info-card accent-card">
+              <p class="info-label">Selected ruleset</p>
+              <h3 id="rulesetName">Loading...</h3>
+              <p id="rulesetDescription" class="info-copy"></p>
+              <div class="pill-row">
+                <span class="pill" id="rulesetMeasure">Measure</span>
+                <span class="pill" id="rulesetOrder">Recommended order</span>
+              </div>
+            </article>
+
+            <article class="info-card">
+              <p class="info-label">Upload status</p>
+              <h3 id="fileStatusTitle">No file loaded</h3>
+              <p id="fileStatusText" class="info-copy">
+                Load a sample CSV or upload your own dashboard export to begin.
+              </p>
+            </article>
+          </section>
+
+          <div class="button-row">
+            <button id="runRulesButton">Run rules</button>
+            <button id="generateOrdersButton" class="secondary-button" disabled>
+              Generate draft orders
+            </button>
+            <button id="exportReportButton" class="ghost-button" disabled>
+              Export run report
+            </button>
+          </div>
+
+          <div class="summary-strip" id="summaryStrip">
+            <div class="summary-card">
+              <span>Total rows</span>
+              <strong id="totalRowsValue">0</strong>
+            </div>
+            <div class="summary-card">
+              <span>Rule matches</span>
+              <strong id="ruleMatchesValue">0</strong>
+            </div>
+            <div class="summary-card">
+              <span>Inbox drafts</span>
+              <strong id="inboxDraftsValue">0</strong>
+            </div>
+            <div class="summary-card">
+              <span>Run insight</span>
+              <strong id="runInsightValue">Awaiting upload</strong>
+            </div>
+          </div>
+
+          <div class="table-shell">
+            <table>
+              <thead>
+                <tr>
+                  <th>Patient</th>
+                  <th>Gap</th>
+                  <th>Recommended order</th>
+                  <th>Provider</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="resultsBody">
+                <tr>
+                  <td colspan="5" class="empty-state">
+                    Upload a CSV and run a ruleset to see patient recommendations.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel inbox-panel">
+          <div class="panel-header">
+            <div>
+              <p class="section-kicker">Provider Workflow</p>
+              <h2>Inbox queue + decision support</h2>
+              <p class="panel-copy">
+                Each draft order includes the rule explanation, audit note, and FHIR payload preview so the provider can approve quickly.
+              </p>
+            </div>
+          </div>
+
+          <div class="inbox-grid">
+            <aside class="queue-list" id="queueList"></aside>
+            <section class="detail-panel" id="detailPanel">
+              <div class="detail-empty">
+                Generate draft orders to populate the provider inbox.
+              </div>
+            </section>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="/app.js"></script>
+  </body>
+</html>

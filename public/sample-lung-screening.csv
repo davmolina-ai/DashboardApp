@@ -1,0 +1,5 @@
+Patient Name,MRN,Age,Smoking Status,Smoking Pack Years,Quit Date,Years Since Quit,Assigned Provider,Measure name / gap reason,Due Date
+John Smith,50021,58,former,25,2023-03-01,3,Dr. Patel,Eligible for lung cancer screening,2026-05-15
+Rita Evans,50022,51,current,32,,0,Dr. Gomez,Eligible for lung cancer screening,2026-05-20
+Luis Torres,50023,47,current,28,,0,Dr. Nguyen,Eligible for lung cancer screening,2026-05-20
+Sarah Kim,50024,76,former,10,2020-02-01,6,Dr. Patel,Eligible for lung cancer screening,2026-05-20

@@ -1,0 +1,6 @@
+name: dashboard-to-orders-demo
+services:
+  web:
+    project: .
+    host: appservice
+    language: js

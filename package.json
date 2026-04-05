@@ -1,0 +1,10 @@
+{
+  "name": "dashboard-to-orders-demo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Demo project for converting dashboard CSVs into draft FHIR ServiceRequest orders.",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  }
+}
