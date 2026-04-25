@@ -27,6 +27,9 @@ jobs:
           test -n "$AZURE_WEBAPP_PUBLISH_PROFILE" || (echo "Missing secret: AZURE_WEBAPP_PUBLISH_PROFILE" && exit 1)
           echo "Azure deployment secrets are present."
 
+      - name: Install dependencies
+        run: npm ci
+
       - name: Validate app boots
         run: |
           npm start &
