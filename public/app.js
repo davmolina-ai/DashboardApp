@@ -6,7 +6,8 @@ const state = {
     rulesets: [],
     selectedRulesetId: "",
     evaluationResult: null,
-    expandedEvaluationIndexes: []
+    expandedEvaluationIndexes: [],
+    fhirServerUrl: "https://example-fhir-server.azurehealthcareapis.com"
   },
   builder: {
     view: "canvas",
@@ -22,6 +23,7 @@ const state = {
 };
 
 const DEFAULT_DASHBOARD_NAME = "<Add Dasboard name here>";
+const DEFAULT_FHIR_SERVER_URL = "https://example-fhir-server.azurehealthcareapis.com";
 
 const elements = {
   operationsTab: document.querySelector("#operationsTab"),
@@ -34,6 +36,8 @@ const elements = {
   loadSampleButton: document.querySelector("#loadSampleButton"),
   runRulesButton: document.querySelector("#runRulesButton"),
   exportReportButton: document.querySelector("#exportReportButton"),
+  sendOrdersButton: document.querySelector("#sendOrdersButton"),
+  fhirServerUrlInput: document.querySelector("#fhirServerUrlInput"),
   resultsBody: document.querySelector("#resultsBody"),
   totalRowsValue: document.querySelector("#totalRowsValue"),
   ruleMatchesValue: document.querySelector("#ruleMatchesValue"),
@@ -103,6 +107,11 @@ function bindEvents() {
     state.operations.dashboardName = elements.dashboardNameInput.value;
   });
 
+  elements.fhirServerUrlInput.addEventListener("input", () => {
+    state.operations.fhirServerUrl = elements.fhirServerUrlInput.value;
+    updateSendOrdersState();
+  });
+
   elements.csvFileInput.addEventListener("change", async (event) => {
     const file = event.target.files[0];
     if (!file) {
@@ -122,6 +131,7 @@ function bindEvents() {
   elements.loadSampleButton.addEventListener("click", loadSampleCsv);
   elements.runRulesButton.addEventListener("click", runRules);
   elements.exportReportButton.addEventListener("click", exportRunReport);
+  elements.sendOrdersButton.addEventListener("click", sendOrders);
   elements.resultsBody.addEventListener("click", handleResultsTableClick);
 
   elements.builderCsvFileInput.addEventListener("change", async (event) => {
@@ -409,6 +419,7 @@ async function runRules() {
   state.operations.evaluationResult = data;
   state.operations.expandedEvaluationIndexes = [];
   elements.exportReportButton.disabled = data.evaluations.length === 0;
+  updateSendOrdersState();
   renderEvaluation();
 }
 
@@ -915,6 +926,39 @@ async function saveCurrentRule() {
   window.alert(`Ruleset "${data.ruleset.name}" was saved.`);
 }
 
+function getDraftableOrders() {
+  return (state.operations.evaluationResult?.evaluations || []).filter(
+    (item) => item.triggered && (item.fhirServiceRequest || item.orderInput)
+  );
+}
+
+function hasRealFhirServerUrl() {
+  const value = String(state.operations.fhirServerUrl || "").trim();
+  return Boolean(value) && value !== DEFAULT_FHIR_SERVER_URL;
+}
+
+function updateSendOrdersState() {
+  elements.sendOrdersButton.disabled = !(getDraftableOrders().length > 0 && hasRealFhirServerUrl());
+}
+
+function sendOrders() {
+  const draftableOrders = getDraftableOrders();
+  if (draftableOrders.length === 0) {
+    window.alert("No draft orders are available to send.");
+    return;
+  }
+
+  if (!hasRealFhirServerUrl()) {
+    window.alert("Please replace the example FHIR server URL with a real server before sending orders.");
+    return;
+  }
+
+  const serverUrl = String(state.operations.fhirServerUrl || "").trim();
+  window.alert(
+    `${draftableOrders.length} order${draftableOrders.length === 1 ? "" : "s"} would be send it now to the ${serverUrl} FHIR server.`
+  );
+}
+
 function currentOperationsRuleset() {
   return state.operations.rulesets.find((item) => String(item.id) === String(state.operations.selectedRulesetId)) || null;
 }
@@ -924,11 +968,14 @@ function resetOperationsState() {
   state.operations.evaluationResult = null;
   state.operations.expandedEvaluationIndexes = [];
   state.operations.dashboardName = DEFAULT_DASHBOARD_NAME;
+  state.operations.fhirServerUrl = DEFAULT_FHIR_SERVER_URL;
   elements.csvFileInput.value = "";
   elements.dashboardNameInput.value = state.operations.dashboardName;
+  elements.fhirServerUrlInput.value = state.operations.fhirServerUrl;
   state.operations.selectedRulesetId = "";
   elements.rulesetSelect.value = "";
   elements.exportReportButton.disabled = true;
+  elements.sendOrdersButton.disabled = true;
   elements.totalRowsValue.textContent = "0";
   elements.ruleMatchesValue.textContent = "0";
   elements.runInsightValue.textContent = "Awaiting upload";
