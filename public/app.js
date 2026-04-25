@@ -37,7 +37,7 @@ const elements = {
   runRulesButton: document.querySelector("#runRulesButton"),
   exportReportButton: document.querySelector("#exportReportButton"),
   sendOrdersButton: document.querySelector("#sendOrdersButton"),
-  fhirServerUrlInput: document.querySelector("#fhirServerUrlInput"),
+  addFhirServerButton: document.querySelector("#addFhirServerButton"),
   resultsBody: document.querySelector("#resultsBody"),
   totalRowsValue: document.querySelector("#totalRowsValue"),
   ruleMatchesValue: document.querySelector("#ruleMatchesValue"),
@@ -107,11 +107,6 @@ function bindEvents() {
     state.operations.dashboardName = elements.dashboardNameInput.value;
   });
 
-  elements.fhirServerUrlInput.addEventListener("input", () => {
-    state.operations.fhirServerUrl = elements.fhirServerUrlInput.value;
-    updateSendOrdersState();
-  });
-
   elements.csvFileInput.addEventListener("change", async (event) => {
     const file = event.target.files[0];
     if (!file) {
@@ -132,6 +127,7 @@ function bindEvents() {
   elements.runRulesButton.addEventListener("click", runRules);
   elements.exportReportButton.addEventListener("click", exportRunReport);
   elements.sendOrdersButton.addEventListener("click", sendOrders);
+  elements.addFhirServerButton.addEventListener("click", addFhirServer);
   elements.resultsBody.addEventListener("click", handleResultsTableClick);
 
   elements.builderCsvFileInput.addEventListener("change", async (event) => {
@@ -941,6 +937,27 @@ function updateSendOrdersState() {
   elements.sendOrdersButton.disabled = !(getDraftableOrders().length > 0 && hasRealFhirServerUrl());
 }
 
+function addFhirServer() {
+  const currentValue =
+    state.operations.fhirServerUrl && state.operations.fhirServerUrl !== DEFAULT_FHIR_SERVER_URL
+      ? state.operations.fhirServerUrl
+      : DEFAULT_FHIR_SERVER_URL;
+  const enteredUrl = window.prompt("Enter the FHIR server URL.", currentValue);
+  if (enteredUrl === null) {
+    return;
+  }
+
+  state.operations.fhirServerUrl = String(enteredUrl || "").trim() || DEFAULT_FHIR_SERVER_URL;
+  updateSendOrdersState();
+
+  if (state.operations.fhirServerUrl === DEFAULT_FHIR_SERVER_URL) {
+    window.alert("FHIR server remains set to the example value. Update it to a real server before sending orders.");
+    return;
+  }
+
+  window.alert(`FHIR server saved: ${state.operations.fhirServerUrl}`);
+}
+
 function sendOrders() {
   const draftableOrders = getDraftableOrders();
   if (draftableOrders.length === 0) {
@@ -971,7 +988,6 @@ function resetOperationsState() {
   state.operations.fhirServerUrl = DEFAULT_FHIR_SERVER_URL;
   elements.csvFileInput.value = "";
   elements.dashboardNameInput.value = state.operations.dashboardName;
-  elements.fhirServerUrlInput.value = state.operations.fhirServerUrl;
   state.operations.selectedRulesetId = "";
   elements.rulesetSelect.value = "";
   elements.exportReportButton.disabled = true;
