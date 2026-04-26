@@ -497,16 +497,25 @@ async function openCsvQuickView(source = "operations") {
   const data = await response.json();
   elements.csvQuickViewTitle.textContent =
     source === "builder" ? "Builder CSV preview" : "Uploaded CSV preview";
-  elements.csvQuickViewMeta.textContent = `Showing ${data.previewRows.length} of ${data.totalRows} row(s) across ${data.headers.length} column(s).`;
+
+  const previewContext =
+    source === "builder"
+      ? buildBuilderPreviewContext(data.headers, data.previewRows)
+      : {
+          rows: data.previewRows.map((row) => ({ row, matched: false, matchedFields: new Set() })),
+          message: `Showing ${data.previewRows.length} of ${data.totalRows} row(s) across ${data.headers.length} column(s).`
+        };
+
+  elements.csvQuickViewMeta.textContent = previewContext.message;
   elements.csvQuickViewHead.innerHTML = `
     <tr>${data.headers.map((header) => `<th>${escapeHtml(header)}</th>`).join("")}</tr>
   `;
-  elements.csvQuickViewBody.innerHTML = data.previewRows.length
-    ? data.previewRows
+  elements.csvQuickViewBody.innerHTML = previewContext.rows.length
+    ? previewContext.rows
         .map(
-          (row) => `
-            <tr>
-              ${data.headers.map((header) => `<td>${escapeHtml(row[header] || "")}</td>`).join("")}
+          ({ row, matched, matchedFields }) => `
+            <tr class="${matched ? "matched-preview-row" : ""}">
+              ${data.headers.map((header) => `<td class="${matchedFields.has(header) ? "matched-preview-cell" : ""}">${escapeHtml(row[header] || "")}</td>`).join("")}
             </tr>
           `
         )
@@ -514,6 +523,34 @@ async function openCsvQuickView(source = "operations") {
     : '<tr><td class="empty-state">No rows available.</td></tr>';
 
   elements.csvQuickViewDialog.showModal();
+}
+
+function buildBuilderPreviewContext(headers, rows) {
+  const root = state.builder.draft?.definition?.root;
+  if (!hasConfiguredConditions(root)) {
+    return {
+      rows: rows.map((row) => ({ row, matched: false, matchedFields: new Set() })),
+      message: `Showing ${rows.length} row(s). No matches found because the canvas has no configured conditions yet.`
+    };
+  }
+
+  const evaluatedRows = rows.map((row) => {
+    const result = evaluatePreviewNode(root, row);
+    return {
+      row,
+      matched: result.matched,
+      matchedFields: result.matchedFields
+    };
+  });
+
+  const matchedCount = evaluatedRows.filter((item) => item.matched).length;
+  return {
+    rows: evaluatedRows,
+    message:
+      matchedCount > 0
+        ? `Showing ${rows.length} row(s). Highlighted ${matchedCount} matching row(s) based on the current canvas configuration.`
+        : `Showing ${rows.length} row(s). No matches found for the current canvas configuration.`
+  };
 }
 
 function renderRulesetContext() {
@@ -1371,6 +1408,145 @@ function summarizeRuleNode(node) {
 function summarizeCondition(node) {
   const value = Array.isArray(node.value) ? node.value.join(" to ") : node.value;
   return `${node.not ? "NOT " : ""}${node.field} ${node.comparator}${value !== undefined && value !== "" ? ` ${value}` : ""}`;
+}
+
+function hasConfiguredConditions(node) {
+  if (!node) {
+    return false;
+  }
+
+  if (node.type === "condition") {
+    return Boolean(node.field);
+  }
+
+  return (node.children || []).some((child) => hasConfiguredConditions(child));
+}
+
+function evaluatePreviewNode(node, row) {
+  if (!node) {
+    return { matched: true, matchedFields: new Set() };
+  }
+
+  if (node.type === "group") {
+    const childResults = (node.children || []).map((child) => evaluatePreviewNode(child, row));
+    const operator = String(node.operator || "AND").toUpperCase();
+    const matchedChildren =
+      operator === "OR" ? childResults.filter((result) => result.matched) : childResults;
+    const baseMatched =
+      operator === "OR"
+        ? childResults.some((result) => result.matched)
+        : childResults.every((result) => result.matched);
+    const finalMatched = node.not ? !baseMatched : baseMatched;
+
+    return {
+      matched: finalMatched,
+      matchedFields: mergeFieldSets(matchedChildren.map((result) => result.matchedFields))
+    };
+  }
+
+  const baseMatched = comparePreviewValue(row[node.field], node.comparator, node.value);
+  const finalMatched = node.not ? !baseMatched : baseMatched;
+  return {
+    matched: finalMatched,
+    matchedFields: finalMatched && node.field ? new Set([node.field]) : new Set()
+  };
+}
+
+function mergeFieldSets(sets) {
+  return sets.reduce((combined, nextSet) => {
+    nextSet.forEach((field) => combined.add(field));
+    return combined;
+  }, new Set());
+}
+
+function comparePreviewValue(rawValue, comparator, expectedValue) {
+  const normalizedValue = normalizePreview(rawValue);
+  switch (comparator) {
+    case "between": {
+      const [minimum, maximum] = expectedValue || [];
+      const rangeComparison = comparePreviewRange(rawValue, minimum, maximum);
+      return rangeComparison !== null ? rangeComparison : false;
+    }
+    case "greaterThanOrEqual":
+      return comparePreviewOrdered(rawValue, expectedValue, (left, right) => left >= right);
+    case "lessThanOrEqual":
+      return comparePreviewOrdered(rawValue, expectedValue, (left, right) => left <= right);
+    case "equals":
+      return normalizedValue === normalizePreview(expectedValue);
+    case "contains":
+      return normalizedValue.includes(normalizePreview(expectedValue));
+    case "blank":
+      return normalizedValue === "";
+    case "notBlank":
+      return normalizedValue !== "";
+    case "affirmative":
+      return isAffirmativePreview(rawValue);
+    case "notAffirmative":
+      return !isAffirmativePreview(rawValue);
+    case "olderThanDays": {
+      const dateValue = parsePreviewDate(rawValue);
+      return Boolean(dateValue) && previewDaysBetween(dateValue, new Date()) > Number(expectedValue);
+    }
+    case "withinLastDays": {
+      const dateValue = parsePreviewDate(rawValue);
+      return Boolean(dateValue) && previewDaysBetween(dateValue, new Date()) <= Number(expectedValue);
+    }
+    case "oneOf":
+      return (expectedValue || []).map(normalizePreview).includes(normalizedValue);
+    default:
+      return false;
+  }
+}
+
+function comparePreviewRange(rawValue, minimum, maximum) {
+  const rawDate = parsePreviewDate(rawValue);
+  const minimumDate = parsePreviewDate(minimum);
+  const maximumDate = parsePreviewDate(maximum);
+  if (rawDate && minimumDate && maximumDate) {
+    return rawDate >= minimumDate && rawDate <= maximumDate;
+  }
+
+  const numericValue = parsePreviewNumber(rawValue);
+  return Number.isFinite(numericValue) && numericValue >= Number(minimum) && numericValue <= Number(maximum);
+}
+
+function comparePreviewOrdered(rawValue, expectedValue, comparator) {
+  const rawDate = parsePreviewDate(rawValue);
+  const expectedDate = parsePreviewDate(expectedValue);
+  if (rawDate && expectedDate) {
+    return comparator(rawDate.getTime(), expectedDate.getTime());
+  }
+
+  const numericValue = parsePreviewNumber(rawValue);
+  return Number.isFinite(numericValue) && comparator(numericValue, Number(expectedValue));
+}
+
+function parsePreviewNumber(value) {
+  const parsed = Number(String(value || "").replace(/[^0-9.\-]/g, ""));
+  return Number.isFinite(parsed) ? parsed : NaN;
+}
+
+function parsePreviewDate(value) {
+  if (!value) {
+    return null;
+  }
+
+  const date = new Date(String(value).trim());
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function previewDaysBetween(dateA, dateB) {
+  const msPerDay = 1000 * 60 * 60 * 24;
+  return Math.floor((dateB - dateA) / msPerDay);
+}
+
+function normalizePreview(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function isAffirmativePreview(value) {
+  const normalized = normalizePreview(value);
+  return normalized === "yes" || normalized === "y" || normalized === "true" || normalized === "1" || normalized === "✓";
 }
 
 function randomId(prefix) {
