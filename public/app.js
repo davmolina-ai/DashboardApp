@@ -14,6 +14,7 @@ const state = {
     csvText: "",
     profileOverride: "",
     useLlm: false,
+    llmProvider: "phi",
     analysis: null,
     analysisLoading: false,
     storedRules: [],
@@ -60,6 +61,7 @@ const elements = {
   builderLoadColonButton: document.querySelector("#builderLoadColonButton"),
   builderProfileOverrideSelect: document.querySelector("#builderProfileOverrideSelect"),
   builderUseLlmToggle: document.querySelector("#builderUseLlmToggle"),
+  builderLlmProviderSelect: document.querySelector("#builderLlmProviderSelect"),
   builderAnalysisSummary: document.querySelector("#builderAnalysisSummary"),
   builderProfileName: document.querySelector("#builderProfileName"),
   builderLlmBadge: document.querySelector("#builderLlmBadge"),
@@ -177,6 +179,10 @@ function bindEvents() {
   });
   elements.builderUseLlmToggle.addEventListener("change", () => {
     state.builder.useLlm = elements.builderUseLlmToggle.checked;
+    renderBuilderLlmBadge(state.builder.analysis?.llm || null);
+  });
+  elements.builderLlmProviderSelect.addEventListener("change", () => {
+    state.builder.llmProvider = elements.builderLlmProviderSelect.value;
     renderBuilderLlmBadge(state.builder.analysis?.llm || null);
   });
   elements.builderCanvasTab.addEventListener("click", () => switchBuilderView("canvas"));
@@ -527,7 +533,8 @@ async function analyzeBuilderCsv() {
       body: JSON.stringify({
         csvText: state.builder.csvText,
         profileOverride: state.builder.profileOverride,
-        useLlm: state.builder.useLlm
+        useLlm: state.builder.useLlm,
+        llmProvider: state.builder.llmProvider
       })
     });
 
@@ -1278,6 +1285,7 @@ function resetBuilderState() {
   state.builder.csvText = "";
   state.builder.profileOverride = "";
   state.builder.useLlm = false;
+  state.builder.llmProvider = "phi";
   state.builder.analysis = null;
   state.builder.analysisLoading = false;
   state.builder.draft = createBlankRuleDraft();
@@ -1288,6 +1296,7 @@ function resetBuilderState() {
   elements.builderCsvFileInput.value = "";
   elements.builderProfileOverrideSelect.value = "";
   elements.builderUseLlmToggle.checked = false;
+  elements.builderLlmProviderSelect.value = "phi";
   elements.builderAnalysisSummary.textContent =
     "Upload a CSV to detect fields, identify a clinical profile, and propose starter rules.";
   updateAnalyzeBuilderButtonState();
@@ -1620,7 +1629,7 @@ function buildBuilderAnalysisSummary(analysis) {
     return `${base} Azure AI is turned off for this analysis, so suggestions are coming from the curated source library only.`;
   }
   if (analysis.llm?.used) {
-    return `${base} Azure AI also proposed ${analysis.llm.suggestionCount || 0} draft suggestion${analysis.llm.suggestionCount === 1 ? "" : "s"} using ${analysis.llm.deployment}.`;
+    return `${base} Azure AI also proposed ${analysis.llm.suggestionCount || 0} draft suggestion${analysis.llm.suggestionCount === 1 ? "" : "s"} using ${analysis.llm.providerLabel || analysis.llm.deployment}.`;
   }
   if (analysis.llm?.enabled && analysis.llm?.error) {
     return `${base} Azure AI suggestions were unavailable, so the builder is showing curated local suggestions only. Error: ${analysis.llm.error}`;
@@ -1646,20 +1655,22 @@ function renderBuilderLlmBadge(llmMeta) {
   }
 
   if (llmMeta.used) {
-    badge.textContent = llmMeta.deployment
-      ? `LLM: Connected (${llmMeta.deployment})`
-      : "LLM: Connected";
+    badge.textContent = llmMeta.providerLabel
+      ? `LLM: Connected (${llmMeta.providerLabel})`
+      : llmMeta.deployment
+        ? `LLM: Connected (${llmMeta.deployment})`
+        : "LLM: Connected";
     badge.className = "llm-badge llm-badge-connected";
     return;
   }
 
   if (llmMeta.enabled) {
-    badge.textContent = "LLM: Fallback mode";
+    badge.textContent = llmMeta.providerLabel ? `LLM: Fallback (${llmMeta.providerLabel})` : "LLM: Fallback mode";
     badge.className = "llm-badge llm-badge-fallback";
     return;
   }
 
-  badge.textContent = "LLM: Not configured";
+  badge.textContent = llmMeta.providerLabel ? `LLM: Not configured (${llmMeta.providerLabel})` : "LLM: Not configured";
   badge.className = "llm-badge llm-badge-idle";
 }
 

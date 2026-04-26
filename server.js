@@ -103,12 +103,14 @@ async function handleApi(req, res, url, rulesDb) {
     const curatedSuggestions = getRuleSuggestions(profile);
     const guidelineSources = rulesDb.listGuidelineSources({ domain: profile });
     const shouldUseLlm = body.useLlm === true;
+    const llmProvider = body.llmProvider || "phi";
     let aiSuggestionResult = {
       suggestions: [],
       meta: {
-        enabled: shouldUseLlm && isLlmConfigured(),
+        enabled: shouldUseLlm && isLlmConfigured(llmProvider),
         used: false,
-        requested: shouldUseLlm
+        requested: shouldUseLlm,
+        provider: llmProvider
       }
     };
 
@@ -121,15 +123,17 @@ async function handleApi(req, res, url, rulesDb) {
           previewRows: analysis.rows.slice(0, 5),
           curatedSuggestions,
           guidelineSources
-        });
+        }, { provider: llmProvider });
         aiSuggestionResult.meta.requested = true;
+        aiSuggestionResult.meta.provider = llmProvider;
       } catch (error) {
         aiSuggestionResult = {
           suggestions: [],
           meta: {
-            enabled: isLlmConfigured(),
+            enabled: isLlmConfigured(llmProvider),
             used: false,
             requested: true,
+            provider: llmProvider,
             error: error?.name === "AbortError" ? "Azure AI suggestion request timed out." : error.message
           }
         };
