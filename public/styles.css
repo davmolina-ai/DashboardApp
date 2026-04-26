@@ -746,6 +746,43 @@ td {
   text-decoration-color: var(--accent-strong);
 }
 
+.builder-profile-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.llm-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 12px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-family: "Trebuchet MS", sans-serif;
+  letter-spacing: 0.02em;
+  border: 1px solid transparent;
+}
+
+.llm-badge-idle {
+  background: rgba(116, 126, 140, 0.12);
+  color: #506070;
+  border-color: rgba(116, 126, 140, 0.18);
+}
+
+.llm-badge-connected {
+  background: rgba(13, 107, 97, 0.12);
+  color: var(--accent-strong);
+  border-color: rgba(13, 107, 97, 0.22);
+}
+
+.llm-badge-fallback {
+  background: rgba(205, 117, 47, 0.12);
+  color: #a45924;
+  border-color: rgba(205, 117, 47, 0.24);
+}
+
 .rule-canvas {
   min-height: 520px;
   padding: 16px;

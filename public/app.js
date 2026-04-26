@@ -59,6 +59,7 @@ const elements = {
   builderProfileOverrideSelect: document.querySelector("#builderProfileOverrideSelect"),
   builderAnalysisSummary: document.querySelector("#builderAnalysisSummary"),
   builderProfileName: document.querySelector("#builderProfileName"),
+  builderLlmBadge: document.querySelector("#builderLlmBadge"),
   builderProfileSummary: document.querySelector("#builderProfileSummary"),
   builderFieldCount: document.querySelector("#builderFieldCount"),
   builderSuggestionCount: document.querySelector("#builderSuggestionCount"),
@@ -691,6 +692,7 @@ function renderBuilderAnalysis() {
   const analysis = state.builder.analysis;
   if (!analysis) {
     elements.builderProfileName.textContent = "Not analyzed yet";
+    renderBuilderLlmBadge(null);
     elements.builderProfileSummary.textContent = "The builder will identify a likely clinical profile and surface matching rule suggestions.";
     elements.builderFieldCount.textContent = "0 fields";
     elements.builderSuggestionCount.textContent = "0 suggestions";
@@ -700,6 +702,7 @@ function renderBuilderAnalysis() {
   }
 
   elements.builderProfileName.textContent = formatProfileName(analysis.profile);
+  renderBuilderLlmBadge(analysis.llm);
   elements.builderProfileSummary.textContent =
     analysis.profile === "generic"
       ? "No known clinical template was recognized, so start from a blank canvas and map your own fields."
@@ -1591,6 +1594,32 @@ function buildBuilderAnalysisSummary(analysis) {
     return `${base} Azure AI is configured and ready when the selected CSV strongly matches a draftable rule pattern.`;
   }
   return `${base} Azure AI is not configured yet, so suggestions are coming from the curated local library.`;
+}
+
+function renderBuilderLlmBadge(llmMeta) {
+  const badge = elements.builderLlmBadge;
+  if (!llmMeta) {
+    badge.textContent = "LLM: Not checked";
+    badge.className = "llm-badge llm-badge-idle";
+    return;
+  }
+
+  if (llmMeta.used) {
+    badge.textContent = llmMeta.deployment
+      ? `LLM: Connected (${llmMeta.deployment})`
+      : "LLM: Connected";
+    badge.className = "llm-badge llm-badge-connected";
+    return;
+  }
+
+  if (llmMeta.enabled) {
+    badge.textContent = "LLM: Fallback mode";
+    badge.className = "llm-badge llm-badge-fallback";
+    return;
+  }
+
+  badge.textContent = "LLM: Not configured";
+  badge.className = "llm-badge llm-badge-idle";
 }
 
 function formatSuggestionOrigin(suggestion) {
