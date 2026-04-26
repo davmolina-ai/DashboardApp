@@ -102,32 +102,38 @@ async function handleApi(req, res, url, rulesDb) {
     const profile = body.profileOverride || detectClinicalProfile(analysis.headers);
     const curatedSuggestions = getRuleSuggestions(profile);
     const guidelineSources = rulesDb.listGuidelineSources({ domain: profile });
+    const shouldUseLlm = body.useLlm === true;
     let aiSuggestionResult = {
       suggestions: [],
       meta: {
-        enabled: isLlmConfigured(),
-        used: false
+        enabled: shouldUseLlm && isLlmConfigured(),
+        used: false,
+        requested: shouldUseLlm
       }
     };
 
-    try {
-      aiSuggestionResult = await generateAiRuleSuggestions({
-        profile,
-        headers: analysis.headers,
-        fields: analysis.fields,
-        previewRows: analysis.rows.slice(0, 5),
-        curatedSuggestions,
-        guidelineSources
-      });
-    } catch (error) {
-      aiSuggestionResult = {
-        suggestions: [],
-        meta: {
-          enabled: isLlmConfigured(),
-          used: false,
-          error: error?.name === "AbortError" ? "Azure AI suggestion request timed out." : error.message
-        }
-      };
+    if (shouldUseLlm) {
+      try {
+        aiSuggestionResult = await generateAiRuleSuggestions({
+          profile,
+          headers: analysis.headers,
+          fields: analysis.fields,
+          previewRows: analysis.rows.slice(0, 5),
+          curatedSuggestions,
+          guidelineSources
+        });
+        aiSuggestionResult.meta.requested = true;
+      } catch (error) {
+        aiSuggestionResult = {
+          suggestions: [],
+          meta: {
+            enabled: isLlmConfigured(),
+            used: false,
+            requested: true,
+            error: error?.name === "AbortError" ? "Azure AI suggestion request timed out." : error.message
+          }
+        };
+      }
     }
 
     const suggestions = mergeSuggestions(aiSuggestionResult.suggestions, curatedSuggestions);

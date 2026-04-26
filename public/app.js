@@ -13,7 +13,9 @@ const state = {
     view: "canvas",
     csvText: "",
     profileOverride: "",
+    useLlm: false,
     analysis: null,
+    analysisLoading: false,
     storedRules: [],
     guidelineSources: [],
     draft: createBlankRuleDraft(),
@@ -57,6 +59,7 @@ const elements = {
   analyzeBuilderCsvButton: document.querySelector("#analyzeBuilderCsvButton"),
   builderLoadColonButton: document.querySelector("#builderLoadColonButton"),
   builderProfileOverrideSelect: document.querySelector("#builderProfileOverrideSelect"),
+  builderUseLlmToggle: document.querySelector("#builderUseLlmToggle"),
   builderAnalysisSummary: document.querySelector("#builderAnalysisSummary"),
   builderProfileName: document.querySelector("#builderProfileName"),
   builderLlmBadge: document.querySelector("#builderLlmBadge"),
@@ -114,6 +117,7 @@ async function bootstrap() {
   renderBuilderCanvas();
   renderBuilderPanels();
   renderBuilderSidebarState();
+  updateAnalyzeBuilderButtonState();
   renderStoredRules();
   renderGuidelineSources();
 }
@@ -170,6 +174,10 @@ function bindEvents() {
   elements.builderLoadColonButton.addEventListener("click", loadBuilderSampleCsv);
   elements.builderProfileOverrideSelect.addEventListener("change", () => {
     state.builder.profileOverride = elements.builderProfileOverrideSelect.value;
+  });
+  elements.builderUseLlmToggle.addEventListener("change", () => {
+    state.builder.useLlm = elements.builderUseLlmToggle.checked;
+    renderBuilderLlmBadge(state.builder.analysis?.llm || null);
   });
   elements.builderCanvasTab.addEventListener("click", () => switchBuilderView("canvas"));
   elements.builderStoredTab.addEventListener("click", () => switchBuilderView("stored"));
@@ -501,21 +509,36 @@ async function analyzeBuilderCsv() {
     return;
   }
 
-  const response = await fetch("/api/builder/analyze", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      csvText: state.builder.csvText,
-      profileOverride: state.builder.profileOverride
-    })
-  });
+  if (state.builder.analysisLoading) {
+    return;
+  }
 
-  const data = await response.json();
-  state.builder.analysis = data;
-  elements.builderAnalysisSummary.textContent = buildBuilderAnalysisSummary(data);
-  renderBuilderAnalysis();
+  state.builder.analysisLoading = true;
+  updateAnalyzeBuilderButtonState();
+  elements.builderAnalysisSummary.textContent =
+    "Analyzing the CSV and generating suggested rules. This can take a moment while the builder checks the schema and contacts Azure AI.";
+
+  try {
+    const response = await fetch("/api/builder/analyze", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        csvText: state.builder.csvText,
+        profileOverride: state.builder.profileOverride,
+        useLlm: state.builder.useLlm
+      })
+    });
+
+    const data = await response.json();
+    state.builder.analysis = data;
+    elements.builderAnalysisSummary.textContent = buildBuilderAnalysisSummary(data);
+    renderBuilderAnalysis();
+  } finally {
+    state.builder.analysisLoading = false;
+    updateAnalyzeBuilderButtonState();
+  }
 }
 
 async function openCsvQuickView(source = "operations") {
@@ -1249,7 +1272,9 @@ function resetBuilderState() {
   state.builder.view = "canvas";
   state.builder.csvText = "";
   state.builder.profileOverride = "";
+  state.builder.useLlm = false;
   state.builder.analysis = null;
+  state.builder.analysisLoading = false;
   state.builder.draft = createBlankRuleDraft();
   state.builder.selectedNodeId = state.builder.draft.definition.root.id;
   state.builder.suggestionsCollapsed = true;
@@ -1257,8 +1282,10 @@ function resetBuilderState() {
   state.builder.nodeCollapsed = true;
   elements.builderCsvFileInput.value = "";
   elements.builderProfileOverrideSelect.value = "";
+  elements.builderUseLlmToggle.checked = false;
   elements.builderAnalysisSummary.textContent =
     "Upload a CSV to detect fields, identify a clinical profile, and propose starter rules.";
+  updateAnalyzeBuilderButtonState();
   switchBuilderView("canvas");
 }
 
@@ -1584,11 +1611,14 @@ function buildBuilderAnalysisSummary(analysis) {
     ? ` The AI prompt is grounded on ${sourceCount} trusted clinical source${sourceCount === 1 ? "" : "s"} for this profile.`
     : "";
   const base = `Detected ${analysis.headers.length} fields across the uploaded schema. Drag fields into the canvas or start from a suggested rule.${sourceText}`;
+  if (analysis.llm?.requested === false) {
+    return `${base} Azure AI is turned off for this analysis, so suggestions are coming from the curated source library only.`;
+  }
   if (analysis.llm?.used) {
     return `${base} Azure AI also proposed ${analysis.llm.suggestionCount || 0} draft suggestion${analysis.llm.suggestionCount === 1 ? "" : "s"} using ${analysis.llm.deployment}.`;
   }
   if (analysis.llm?.enabled && analysis.llm?.error) {
-    return `${base} Azure AI suggestions were unavailable, so the builder is showing curated local suggestions only.`;
+    return `${base} Azure AI suggestions were unavailable, so the builder is showing curated local suggestions only. Error: ${analysis.llm.error}`;
   }
   if (analysis.llm?.enabled) {
     return `${base} Azure AI is configured and ready when the selected CSV strongly matches a draftable rule pattern.`;
@@ -1598,6 +1628,12 @@ function buildBuilderAnalysisSummary(analysis) {
 
 function renderBuilderLlmBadge(llmMeta) {
   const badge = elements.builderLlmBadge;
+  if (!state.builder.useLlm) {
+    badge.textContent = "LLM: Off";
+    badge.className = "llm-badge llm-badge-off";
+    return;
+  }
+
   if (!llmMeta) {
     badge.textContent = "LLM: Not checked";
     badge.className = "llm-badge llm-badge-idle";
@@ -1620,6 +1656,11 @@ function renderBuilderLlmBadge(llmMeta) {
 
   badge.textContent = "LLM: Not configured";
   badge.className = "llm-badge llm-badge-idle";
+}
+
+function updateAnalyzeBuilderButtonState() {
+  elements.analyzeBuilderCsvButton.disabled = state.builder.analysisLoading;
+  elements.analyzeBuilderCsvButton.textContent = state.builder.analysisLoading ? "Analyzing..." : "Analyze CSV";
 }
 
 function formatSuggestionOrigin(suggestion) {

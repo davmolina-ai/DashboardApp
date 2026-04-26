@@ -771,6 +771,12 @@ td {
   border-color: rgba(116, 126, 140, 0.18);
 }
 
+.llm-badge-off {
+  background: rgba(95, 95, 95, 0.08);
+  color: #6b6b6b;
+  border-color: rgba(95, 95, 95, 0.18);
+}
+
 .llm-badge-connected {
   background: rgba(13, 107, 97, 0.12);
   color: var(--accent-strong);
