@@ -207,7 +207,10 @@
                 </label>
                 <label class="field field-toggle">
                   <span>Use Azure AI suggestions</span>
-                  <input id="builderUseLlmToggle" type="checkbox" />
+                  <span class="toggle-switch">
+                    <input id="builderUseLlmToggle" type="checkbox" />
+                    <span class="toggle-slider" aria-hidden="true"></span>
+                  </span>
                 </label>
                 <div class="button-row compact-row">
                   <button id="analyzeBuilderCsvButton">Analyze CSV</button>
