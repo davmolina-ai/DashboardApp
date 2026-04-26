@@ -82,7 +82,8 @@ const elements = {
   closeCsvQuickViewButton: document.querySelector("#closeCsvQuickViewButton"),
   saveRuleButton: document.querySelector("#saveRuleButton"),
   resetCanvasButton: document.querySelector("#resetCanvasButton"),
-  addGroupButton: document.querySelector("#addGroupButton"),
+  addAndGroupButton: document.querySelector("#addAndGroupButton"),
+  addOrGroupButton: document.querySelector("#addOrGroupButton"),
   deleteNodeButton: document.querySelector("#deleteNodeButton")
 };
 
@@ -175,12 +176,8 @@ function bindEvents() {
     state.builder.nodeCollapsed = !state.builder.nodeCollapsed;
     renderBuilderSidebarState();
   });
-  elements.addGroupButton.addEventListener("click", () => {
-    const group = ensureSelectedGroup();
-    group.children.push(createGroupNode());
-    renderBuilderCanvas();
-    renderBuilderPanels();
-  });
+  elements.addAndGroupButton.addEventListener("click", () => addGroupToSelected("AND"));
+  elements.addOrGroupButton.addEventListener("click", () => addGroupToSelected("OR"));
   elements.deleteNodeButton.addEventListener("click", () => {
     deleteSelectedNode();
   });
@@ -834,17 +831,19 @@ function renderConditionValueInputs(node) {
     return "";
   }
 
+  const inputType = inputTypeForNode(node);
+
   if (node.comparator === "between") {
     const values = Array.isArray(node.value) ? node.value : ["", ""];
     return `
       <div class="inspector-grid two-up">
         <label class="field">
           <span>Minimum</span>
-          <input data-node-value-index="0" value="${escapeAttribute(values[0] ?? "")}" />
+          <input type="${inputType}" data-node-value-index="0" value="${escapeAttribute(values[0] ?? "")}" />
         </label>
         <label class="field">
           <span>Maximum</span>
-          <input data-node-value-index="1" value="${escapeAttribute(values[1] ?? "")}" />
+          <input type="${inputType}" data-node-value-index="1" value="${escapeAttribute(values[1] ?? "")}" />
         </label>
       </div>
     `;
@@ -853,7 +852,7 @@ function renderConditionValueInputs(node) {
   return `
     <label class="field">
       <span>Value ${node.comparator === "oneOf" ? "(comma separated)" : ""}</span>
-      <input data-node-value value="${escapeAttribute(Array.isArray(node.value) ? node.value.join(", ") : node.value ?? "")}" />
+      <input type="${inputType}" data-node-value value="${escapeAttribute(Array.isArray(node.value) ? node.value.join(", ") : node.value ?? "")}" />
     </label>
   `;
 }
@@ -1150,6 +1149,15 @@ function ensureSelectedGroup() {
   return parent || state.builder.draft.definition.root;
 }
 
+function addGroupToSelected(operator) {
+  const group = ensureSelectedGroup();
+  const childGroup = createGroupNode(operator);
+  group.children.push(childGroup);
+  state.builder.selectedNodeId = childGroup.id;
+  renderBuilderCanvas();
+  renderBuilderPanels();
+}
+
 function deleteSelectedNode() {
   if (state.builder.selectedNodeId === state.builder.draft.definition.root.id) {
     return;
@@ -1302,11 +1310,11 @@ function buildClientFallbackServiceRequest(item) {
   };
 }
 
-function createGroupNode() {
+function createGroupNode(operator = "AND") {
   return {
     id: randomId("group"),
     type: "group",
-    operator: "AND",
+    operator,
     not: false,
     children: []
   };
@@ -1381,6 +1389,22 @@ function formatConditionValue(node) {
     return node.value.join(" to ");
   }
   return node.value === "" ? "No value specified yet" : String(node.value);
+}
+
+function inputTypeForNode(node) {
+  if (node.comparator === "olderThanDays" || node.comparator === "withinLastDays") {
+    return "number";
+  }
+
+  if (isLikelyDateField(node.field)) {
+    return "date";
+  }
+
+  return "text";
+}
+
+function isLikelyDateField(fieldName) {
+  return /date|due|screened|refusal|occurrence|authored/i.test(String(fieldName || ""));
 }
 
 function csvCell(value) {
