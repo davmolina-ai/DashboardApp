@@ -186,6 +186,25 @@
                   <span>CSV for builder analysis</span>
                   <input id="builderCsvFileInput" type="file" accept=".csv,text/csv" />
                 </label>
+                <label class="field">
+                  <span>Profile override</span>
+                  <select id="builderProfileOverrideSelect">
+                    <option value="">Auto-detect</option>
+                    <option value="colon_cancer">Colon cancer</option>
+                    <option value="lung_cancer">Lung cancer</option>
+                    <option value="ascvd">ASCVD</option>
+                    <option value="asthma">Asthma</option>
+                    <option value="cirrhosis">Cirrhosis</option>
+                    <option value="diabetes">Diabetes</option>
+                    <option value="immunizations">Immunizations</option>
+                    <option value="ckd">CKD</option>
+                    <option value="copd">COPD</option>
+                    <option value="cervical_cancer">Cervical cancer</option>
+                    <option value="heart_failure">Heart failure</option>
+                    <option value="hepatitis_b">Hepatitis B</option>
+                    <option value="generic">Generic</option>
+                  </select>
+                </label>
                 <div class="button-row compact-row">
                   <button id="analyzeBuilderCsvButton">Analyze CSV</button>
                   <button id="builderLoadColonButton" class="ghost-button">Use sample colon CSV</button>
@@ -279,11 +298,59 @@
             </section>
 
             <section id="builderStoredView" class="builder-subview hidden">
-              <div class="builder-card">
-                <div class="builder-card-header">
-                  <h3>Stored rulesets</h3>
+              <div class="builder-stored-grid">
+                <div class="builder-card">
+                  <div class="builder-card-header">
+                    <h3>Stored rulesets</h3>
+                  </div>
+                  <div id="storedRulesList" class="stored-rules-list"></div>
                 </div>
-                <div id="storedRulesList" class="stored-rules-list"></div>
+
+                <div class="builder-card">
+                  <div class="builder-card-header">
+                    <h3>Guideline sources</h3>
+                    <span id="guidelineSourceCount" class="mini-stat">0 sources</span>
+                  </div>
+                  <p class="info-copy">
+                    These are the trusted sources the builder can use to ground AI-generated rule suggestions across multiple clinical domains.
+                  </p>
+                  <div id="guidelineSourcesList" class="stored-rules-list source-list"></div>
+                </div>
+
+                <div class="builder-card">
+                  <div class="builder-card-header">
+                    <h3>Add guideline source</h3>
+                  </div>
+                  <div class="inspector-grid">
+                    <label class="field">
+                      <span>Domain</span>
+                      <input id="sourceDomainInput" type="text" placeholder="e.g. diabetes or women's health" />
+                    </label>
+                    <label class="field">
+                      <span>Authority</span>
+                      <input id="sourceAuthorityInput" type="text" placeholder="e.g. ADA, CDC, KDIGO" />
+                    </label>
+                    <label class="field">
+                      <span>Title</span>
+                      <input id="sourceTitleInput" type="text" placeholder="Guideline or recommendation title" />
+                    </label>
+                    <label class="field">
+                      <span>URL</span>
+                      <input id="sourceUrlInput" type="url" placeholder="https://..." />
+                    </label>
+                    <label class="field">
+                      <span>Summary</span>
+                      <textarea id="sourceSummaryInput" rows="4" placeholder="Short description of what this source covers."></textarea>
+                    </label>
+                    <label class="field">
+                      <span>Key points</span>
+                      <textarea id="sourceKeyPointsInput" rows="5" placeholder="One point per line."></textarea>
+                    </label>
+                  </div>
+                  <div class="button-row compact-row">
+                    <button id="saveGuidelineSourceButton">Save source</button>
+                  </div>
+                </div>
               </div>
             </section>
           </section>

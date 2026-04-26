@@ -12,8 +12,10 @@ const state = {
   builder: {
     view: "canvas",
     csvText: "",
+    profileOverride: "",
     analysis: null,
     storedRules: [],
+    guidelineSources: [],
     draft: createBlankRuleDraft(),
     selectedNodeId: "root",
     suggestionsCollapsed: true,
@@ -54,6 +56,7 @@ const elements = {
   builderCsvFileInput: document.querySelector("#builderCsvFileInput"),
   analyzeBuilderCsvButton: document.querySelector("#analyzeBuilderCsvButton"),
   builderLoadColonButton: document.querySelector("#builderLoadColonButton"),
+  builderProfileOverrideSelect: document.querySelector("#builderProfileOverrideSelect"),
   builderAnalysisSummary: document.querySelector("#builderAnalysisSummary"),
   builderProfileName: document.querySelector("#builderProfileName"),
   builderProfileSummary: document.querySelector("#builderProfileSummary"),
@@ -74,6 +77,15 @@ const elements = {
   builderSelectedNodePanel: document.querySelector("#builderSelectedNodePanel"),
   builderRuleSettingsPanel: document.querySelector("#builderRuleSettingsPanel"),
   storedRulesList: document.querySelector("#storedRulesList"),
+  guidelineSourceCount: document.querySelector("#guidelineSourceCount"),
+  guidelineSourcesList: document.querySelector("#guidelineSourcesList"),
+  sourceDomainInput: document.querySelector("#sourceDomainInput"),
+  sourceAuthorityInput: document.querySelector("#sourceAuthorityInput"),
+  sourceTitleInput: document.querySelector("#sourceTitleInput"),
+  sourceUrlInput: document.querySelector("#sourceUrlInput"),
+  sourceSummaryInput: document.querySelector("#sourceSummaryInput"),
+  sourceKeyPointsInput: document.querySelector("#sourceKeyPointsInput"),
+  saveGuidelineSourceButton: document.querySelector("#saveGuidelineSourceButton"),
   csvQuickViewDialog: document.querySelector("#csvQuickViewDialog"),
   csvQuickViewTitle: document.querySelector("#csvQuickViewTitle"),
   csvQuickViewMeta: document.querySelector("#csvQuickViewMeta"),
@@ -92,7 +104,7 @@ bootstrap();
 async function bootstrap() {
   bindEvents();
   await resetDemoSession();
-  await Promise.all([loadOperationsRulesets(), loadStoredRulesets()]);
+  await Promise.all([loadOperationsRulesets(), loadStoredRulesets(), loadGuidelineSources()]);
   resetOperationsState();
   renderCurrentView();
   renderRulesetContext();
@@ -102,6 +114,7 @@ async function bootstrap() {
   renderBuilderPanels();
   renderBuilderSidebarState();
   renderStoredRules();
+  renderGuidelineSources();
 }
 
 function bindEvents() {
@@ -154,6 +167,9 @@ function bindEvents() {
 
   elements.analyzeBuilderCsvButton.addEventListener("click", analyzeBuilderCsv);
   elements.builderLoadColonButton.addEventListener("click", loadBuilderSampleCsv);
+  elements.builderProfileOverrideSelect.addEventListener("change", () => {
+    state.builder.profileOverride = elements.builderProfileOverrideSelect.value;
+  });
   elements.builderCanvasTab.addEventListener("click", () => switchBuilderView("canvas"));
   elements.builderStoredTab.addEventListener("click", () => switchBuilderView("stored"));
   elements.builderQuickViewButton.addEventListener("click", () => openCsvQuickView("builder"));
@@ -230,6 +246,7 @@ function bindEvents() {
 
   elements.builderSelectedNodePanel.addEventListener("input", handleInspectorInput);
   elements.builderSelectedNodePanel.addEventListener("change", handleInspectorInput);
+  elements.builderSelectedNodePanel.addEventListener("click", handleInspectorClicks);
   elements.builderRuleSettingsPanel.addEventListener("input", handleInspectorInput);
   elements.builderRuleSettingsPanel.addEventListener("change", handleInspectorInput);
   elements.builderRuleSettingsPanel.addEventListener("click", handleInspectorClicks);
@@ -294,6 +311,26 @@ function bindEvents() {
       renderEvaluation();
     }
   });
+
+  elements.guidelineSourcesList.addEventListener("click", async (event) => {
+    const deleteButton = event.target.closest("[data-delete-source-id]");
+    if (!deleteButton) {
+      return;
+    }
+
+    const confirmed = window.confirm("Delete this guideline source from the library?");
+    if (!confirmed) {
+      return;
+    }
+
+    await fetch(`/api/guideline-sources/${deleteButton.dataset.deleteSourceId}`, {
+      method: "DELETE"
+    });
+    await loadGuidelineSources();
+    renderGuidelineSources();
+  });
+
+  elements.saveGuidelineSourceButton.addEventListener("click", saveGuidelineSource);
 }
 
 async function switchView(view, options = {}) {
@@ -325,6 +362,7 @@ async function switchView(view, options = {}) {
   renderBuilderPanels();
   renderBuilderSidebarState();
   renderStoredRules();
+  renderGuidelineSources();
 }
 
 function renderCurrentView() {
@@ -379,6 +417,12 @@ async function loadStoredRulesets() {
   const response = await fetch("/api/rulesets");
   const data = await response.json();
   state.builder.storedRules = data.rulesets;
+}
+
+async function loadGuidelineSources() {
+  const response = await fetch("/api/guideline-sources");
+  const data = await response.json();
+  state.builder.guidelineSources = data.sources || [];
 }
 
 async function loadSampleCsv() {
@@ -462,14 +506,14 @@ async function analyzeBuilderCsv() {
       "Content-Type": "application/json"
     },
     body: JSON.stringify({
-      csvText: state.builder.csvText
+      csvText: state.builder.csvText,
+      profileOverride: state.builder.profileOverride
     })
   });
 
   const data = await response.json();
   state.builder.analysis = data;
-  elements.builderAnalysisSummary.textContent =
-    `Detected ${data.headers.length} fields across the uploaded schema. Drag fields into the canvas or start from a suggested rule.`;
+  elements.builderAnalysisSummary.textContent = buildBuilderAnalysisSummary(data);
   renderBuilderAnalysis();
 }
 
@@ -659,7 +703,7 @@ function renderBuilderAnalysis() {
   elements.builderProfileSummary.textContent =
     analysis.profile === "generic"
       ? "No known clinical template was recognized, so start from a blank canvas and map your own fields."
-      : `The uploaded schema matches the ${formatProfileName(analysis.profile)} profile. Suggestions below are prefilled from guideline-inspired templates.`;
+      : `The uploaded schema matches the ${formatProfileName(analysis.profile)} profile. Suggestions below combine curated guidance${analysis.llm?.used ? " with AI-assisted draft proposals" : ""}.`;
   elements.builderFieldCount.textContent = `${analysis.fields.length} fields`;
   elements.builderSuggestionCount.textContent = `${analysis.suggestions.length} suggestions`;
 
@@ -683,7 +727,7 @@ function renderBuilderAnalysis() {
           (suggestion, index) => `
             <article class="suggestion-card">
               <strong>${escapeHtml(suggestion.name)}</strong>
-              <small>${escapeHtml(suggestion.measure)} · ${escapeHtml(suggestion.sourceLabel || "Custom")}</small>
+              <small>${escapeHtml(suggestion.measure)} · ${escapeHtml(suggestion.sourceLabel || "Custom")} · ${escapeHtml(formatSuggestionOrigin(suggestion))}</small>
               <p class="info-copy">${escapeHtml(suggestion.description)}</p>
               <div class="suggestion-values">${renderSuggestionSummary(suggestion)}</div>
               <p class="info-copy subtle-copy">${escapeHtml(suggestion.rationale || "")}</p>
@@ -869,6 +913,7 @@ function renderConditionValueInputs(node) {
   }
 
   const inputType = inputTypeForNode(node);
+  const sampleValues = getFieldSampleValues(node.field);
 
   if (node.comparator === "between") {
     const values = Array.isArray(node.value) ? node.value : ["", ""];
@@ -886,11 +931,40 @@ function renderConditionValueInputs(node) {
     `;
   }
 
+  const datalistId = `field-value-options-${escapeAttribute(node.id)}`;
   return `
     <label class="field">
       <span>Value ${node.comparator === "oneOf" ? "(comma separated)" : ""}</span>
-      <input type="${inputType}" data-node-value value="${escapeAttribute(Array.isArray(node.value) ? node.value.join(", ") : node.value ?? "")}" />
+      <input type="${inputType}" ${sampleValues.length ? `list="${datalistId}"` : ""} data-node-value value="${escapeAttribute(Array.isArray(node.value) ? node.value.join(", ") : node.value ?? "")}" />
     </label>
+    ${
+      sampleValues.length
+        ? `
+          <datalist id="${datalistId}">
+            ${sampleValues.map((value) => `<option value="${escapeAttribute(value)}" label="${escapeAttribute(describeSampleValue(value))}"></option>`).join("")}
+          </datalist>
+          <div class="sample-value-picker">
+            <span class="sample-value-label">Detected field values</span>
+            <div class="sample-value-list">
+              ${sampleValues
+                .map(
+                  (value) => `
+                    <button
+                      type="button"
+                      class="sample-value-chip"
+                      data-sample-value="${escapeAttribute(value)}"
+                      title="${escapeAttribute(describeSampleValue(value))}"
+                    >
+                      ${escapeHtml(renderSampleValueLabel(value))}
+                    </button>
+                  `
+                )
+                .join("")}
+            </div>
+          </div>
+        `
+        : ""
+    }
   `;
 }
 
@@ -912,6 +986,75 @@ function renderStoredRules() {
         )
         .join("")
     : '<div class="detail-empty">No stored rulesets yet. Save one from the builder.</div>';
+}
+
+function renderGuidelineSources() {
+  elements.guidelineSourceCount.textContent = `${state.builder.guidelineSources.length} source${state.builder.guidelineSources.length === 1 ? "" : "s"}`;
+  elements.guidelineSourcesList.innerHTML = state.builder.guidelineSources.length
+    ? state.builder.guidelineSources
+        .map(
+          (source) => `
+            <article class="stored-rule-card">
+              <strong>${escapeHtml(source.title)}</strong>
+              <small>${escapeHtml(formatProfileName(source.domain))} · ${escapeHtml(source.authority)} · ${escapeHtml(source.sourceType === "custom_guideline_source" ? "Custom source" : "Seeded source")}</small>
+              <p class="info-copy">${escapeHtml(source.summary || "")}</p>
+              ${source.keyPoints?.length ? `<div class="source-points">${source.keyPoints.map((point) => `<div class="suggestion-line">${escapeHtml(point)}</div>`).join("")}</div>` : ""}
+              <div class="button-row compact-row">
+                ${source.url ? `<a class="ghost-button inline-link-button" href="${escapeAttribute(source.url)}" target="_blank" rel="noreferrer">Open source</a>` : ""}
+                ${source.sourceType === "custom_guideline_source" ? `<button class="ghost-button" data-delete-source-id="${source.id}">Delete</button>` : ""}
+              </div>
+            </article>
+          `
+        )
+        .join("")
+    : '<div class="detail-empty">No guideline sources yet. Add one for a new domain below.</div>';
+}
+
+async function saveGuidelineSource() {
+  const payload = {
+    domain: normalizeDomainInput(elements.sourceDomainInput.value),
+    authority: elements.sourceAuthorityInput.value.trim(),
+    title: elements.sourceTitleInput.value.trim(),
+    url: elements.sourceUrlInput.value.trim(),
+    summary: elements.sourceSummaryInput.value.trim(),
+    keyPoints: elements.sourceKeyPointsInput.value
+      .split("\n")
+      .map((item) => item.trim())
+      .filter(Boolean),
+    status: "Active"
+  };
+
+  if (!payload.domain || !payload.authority || !payload.title) {
+    window.alert("Domain, authority, and title are required to save a guideline source.");
+    return;
+  }
+
+  const confirmed = window.confirm(`Save "${payload.title}" to the guideline source library?`);
+  if (!confirmed) {
+    return;
+  }
+
+  await fetch("/api/guideline-sources", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(payload)
+  });
+
+  clearGuidelineSourceForm();
+  await loadGuidelineSources();
+  renderGuidelineSources();
+  window.alert(`Guideline source "${payload.title}" was saved.`);
+}
+
+function clearGuidelineSourceForm() {
+  elements.sourceDomainInput.value = "";
+  elements.sourceAuthorityInput.value = "";
+  elements.sourceTitleInput.value = "";
+  elements.sourceUrlInput.value = "";
+  elements.sourceSummaryInput.value = "";
+  elements.sourceKeyPointsInput.value = "";
 }
 
 function handleInspectorInput(event) {
@@ -978,6 +1121,12 @@ function handleInspectorInput(event) {
 }
 
 async function handleInspectorClicks(event) {
+  const sampleValueButton = event.target.closest("[data-sample-value]");
+  if (sampleValueButton) {
+    applySampleValueToSelectedNode(sampleValueButton.dataset.sampleValue || "");
+    return;
+  }
+
   const button = event.target.closest("[data-inspector-action]");
   if (!button) {
     return;
@@ -1096,6 +1245,7 @@ function resetOperationsState() {
 function resetBuilderState() {
   state.builder.view = "canvas";
   state.builder.csvText = "";
+  state.builder.profileOverride = "";
   state.builder.analysis = null;
   state.builder.draft = createBlankRuleDraft();
   state.builder.selectedNodeId = state.builder.draft.definition.root.id;
@@ -1103,6 +1253,7 @@ function resetBuilderState() {
   state.builder.fieldsCollapsed = true;
   state.builder.nodeCollapsed = true;
   elements.builderCsvFileInput.value = "";
+  elements.builderProfileOverrideSelect.value = "";
   elements.builderAnalysisSummary.textContent =
     "Upload a CSV to detect fields, identify a clinical profile, and propose starter rules.";
   switchBuilderView("canvas");
@@ -1384,6 +1535,77 @@ function renderSuggestionSummary(rule) {
     .filter(Boolean)
     .map((line) => `<div class="suggestion-line">${escapeHtml(line)}</div>`)
     .join("");
+}
+
+function getFieldSampleValues(fieldName) {
+  const field = (state.builder.analysis?.fields || []).find((item) => item.name === fieldName);
+  return field?.sampleValues || [];
+}
+
+function renderSampleValueLabel(value) {
+  const text = String(value ?? "");
+  return text === "" ? "(blank)" : text;
+}
+
+function describeSampleValue(value) {
+  const text = String(value ?? "");
+  const codePoints = [...text].map((char) => `U+${char.codePointAt(0).toString(16).toUpperCase().padStart(4, "0")}`);
+  if (!text) {
+    return "Blank value";
+  }
+  return codePoints.length ? `${text} (${codePoints.join(" ")})` : text;
+}
+
+function applySampleValueToSelectedNode(value) {
+  const selectedNode = findNodeById(state.builder.draft.definition.root, state.builder.selectedNodeId);
+  if (!selectedNode || selectedNode.type !== "condition") {
+    return;
+  }
+
+  if (selectedNode.comparator === "oneOf") {
+    const existing = Array.isArray(selectedNode.value) ? selectedNode.value : [];
+    if (!existing.includes(value)) {
+      selectedNode.value = [...existing, value];
+    }
+  } else {
+    selectedNode.value = value;
+  }
+
+  renderBuilderCanvas();
+  renderBuilderPanels();
+}
+
+function buildBuilderAnalysisSummary(analysis) {
+  const sourceCount = analysis.guidelineSources?.length || 0;
+  const sourceText = sourceCount
+    ? ` The AI prompt is grounded on ${sourceCount} trusted clinical source${sourceCount === 1 ? "" : "s"} for this profile.`
+    : "";
+  const base = `Detected ${analysis.headers.length} fields across the uploaded schema. Drag fields into the canvas or start from a suggested rule.${sourceText}`;
+  if (analysis.llm?.used) {
+    return `${base} Azure AI also proposed ${analysis.llm.suggestionCount || 0} draft suggestion${analysis.llm.suggestionCount === 1 ? "" : "s"} using ${analysis.llm.deployment}.`;
+  }
+  if (analysis.llm?.enabled && analysis.llm?.error) {
+    return `${base} Azure AI suggestions were unavailable, so the builder is showing curated local suggestions only.`;
+  }
+  if (analysis.llm?.enabled) {
+    return `${base} Azure AI is configured and ready when the selected CSV strongly matches a draftable rule pattern.`;
+  }
+  return `${base} Azure AI is not configured yet, so suggestions are coming from the curated local library.`;
+}
+
+function formatSuggestionOrigin(suggestion) {
+  if (suggestion.suggestionOrigin === "ai") {
+    return suggestion.suggestionModel ? `AI draft · ${suggestion.suggestionModel}` : "AI draft";
+  }
+  return "Curated template";
+}
+
+function normalizeDomainInput(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
 }
 
 function summarizeRuleNode(node) {

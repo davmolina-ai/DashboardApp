@@ -699,6 +699,29 @@ td {
   background: rgba(255, 253, 248, 0.96);
 }
 
+.builder-stored-grid {
+  display: grid;
+  gap: 22px;
+}
+
+.source-list {
+  max-height: 540px;
+  overflow: auto;
+}
+
+.source-points {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.inline-link-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
 .suggestion-values {
   display: grid;
   gap: 8px;
@@ -829,6 +852,39 @@ td {
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
+}
+
+.sample-value-picker {
+  display: grid;
+  gap: 10px;
+  margin-top: 2px;
+}
+
+.sample-value-label {
+  font-size: 0.82rem;
+  color: var(--muted);
+  font-family: "Trebuchet MS", sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.sample-value-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.sample-value-chip {
+  padding: 7px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(13, 107, 97, 0.2);
+  background: rgba(13, 107, 97, 0.07);
+  color: var(--accent-strong);
+  font-size: 0.9rem;
+}
+
+.sample-value-chip:hover {
+  background: rgba(13, 107, 97, 0.14);
 }
 
 @media (max-width: 1100px) {

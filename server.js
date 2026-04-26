@@ -3,8 +3,10 @@ const fs = require("fs");
 const path = require("path");
 const { URL } = require("url");
 const { createRulesDb } = require("./lib/rules-db");
+const { getSeedGuidelineSources } = require("./lib/guideline-library");
 const { getSeedRules, detectClinicalProfile, getRuleSuggestions } = require("./lib/seed-rules");
 const { analyzeCsv, buildServiceRequest, evaluateRuleset } = require("./lib/rule-engine");
+const { generateAiRuleSuggestions, isLlmConfigured } = require("./lib/llm-suggestions");
 
 const PORT = process.env.PORT || 3000;
 const PUBLIC_DIR = path.join(__dirname, "public");
@@ -16,7 +18,8 @@ const DB_FILE_PATH = path.join(DB_DIR, "rulesets.sqlite");
 async function main() {
   const rulesDb = await createRulesDb({
     dbFilePath: DB_FILE_PATH,
-    seedRules: getSeedRules()
+    seedRules: getSeedRules(),
+    seedGuidelineSources: getSeedGuidelineSources()
   });
 
   const server = http.createServer(async (req, res) => {
@@ -48,6 +51,13 @@ async function handleApi(req, res, url, rulesDb) {
     const status = url.searchParams.get("status");
     return sendJson(res, 200, {
       rulesets: rulesDb.listRulesets(status ? { status } : {})
+    });
+  }
+
+  if (req.method === "GET" && url.pathname === "/api/guideline-sources") {
+    const domain = url.searchParams.get("domain");
+    return sendJson(res, 200, {
+      sources: rulesDb.listGuidelineSources(domain ? { domain } : {})
     });
   }
 
@@ -89,15 +99,47 @@ async function handleApi(req, res, url, rulesDb) {
     }
 
     const analysis = analyzeCsv(body.csvText || "");
-    const profile = detectClinicalProfile(analysis.headers);
-    const suggestions = getRuleSuggestions(profile);
+    const profile = body.profileOverride || detectClinicalProfile(analysis.headers);
+    const curatedSuggestions = getRuleSuggestions(profile);
+    const guidelineSources = rulesDb.listGuidelineSources({ domain: profile });
+    let aiSuggestionResult = {
+      suggestions: [],
+      meta: {
+        enabled: isLlmConfigured(),
+        used: false
+      }
+    };
+
+    try {
+      aiSuggestionResult = await generateAiRuleSuggestions({
+        profile,
+        headers: analysis.headers,
+        fields: analysis.fields,
+        previewRows: analysis.rows.slice(0, 5),
+        curatedSuggestions,
+        guidelineSources
+      });
+    } catch (error) {
+      aiSuggestionResult = {
+        suggestions: [],
+        meta: {
+          enabled: isLlmConfigured(),
+          used: false,
+          error: error?.name === "AbortError" ? "Azure AI suggestion request timed out." : error.message
+        }
+      };
+    }
+
+    const suggestions = mergeSuggestions(aiSuggestionResult.suggestions, curatedSuggestions);
 
     return sendJson(res, 200, {
       profile,
       headers: analysis.headers,
       fields: analysis.fields,
       previewRows: analysis.rows.slice(0, 5),
-      suggestions
+      suggestions,
+      guidelineSources,
+      llm: aiSuggestionResult.meta
     });
   }
 
@@ -125,9 +167,25 @@ async function handleApi(req, res, url, rulesDb) {
     return sendJson(res, 200, { ruleset: saved });
   }
 
+  if (req.method === "POST" && url.pathname === "/api/guideline-sources") {
+    const body = await readJson(req, res);
+    if (!body) {
+      return;
+    }
+
+    const saved = rulesDb.saveGuidelineSource(body);
+    return sendJson(res, 200, { source: saved });
+  }
+
   if (req.method === "DELETE" && url.pathname.startsWith("/api/rulesets/")) {
     const id = Number(url.pathname.split("/")[3]);
     rulesDb.deleteRuleset(id);
+    return sendJson(res, 200, { ok: true });
+  }
+
+  if (req.method === "DELETE" && url.pathname.startsWith("/api/guideline-sources/")) {
+    const id = Number(url.pathname.split("/")[3]);
+    rulesDb.deleteGuidelineSource(id);
     return sendJson(res, 200, { ok: true });
   }
 
@@ -194,6 +252,22 @@ function contentType(filePath) {
   if (filePath.endsWith(".csv")) return "text/csv; charset=utf-8";
   if (filePath.endsWith(".wasm")) return "application/wasm";
   return "application/octet-stream";
+}
+
+function mergeSuggestions(aiSuggestions, curatedSuggestions) {
+  const merged = [];
+  const seen = new Set();
+
+  for (const suggestion of [...(aiSuggestions || []), ...(curatedSuggestions || [])]) {
+    const key = String(suggestion.slug || suggestion.name || "").toLowerCase();
+    if (!key || seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    merged.push(suggestion);
+  }
+
+  return merged;
 }
 
 function formatDate(value) {
