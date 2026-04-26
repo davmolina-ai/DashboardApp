@@ -65,6 +65,7 @@ const elements = {
   builderStoredTab: document.querySelector("#builderStoredTab"),
   builderCanvasView: document.querySelector("#builderCanvasView"),
   builderStoredView: document.querySelector("#builderStoredView"),
+  builderQuickViewButton: document.querySelector("#builderQuickViewButton"),
   builderToolsSidebar: document.querySelector("#builderToolsSidebar"),
   toggleSuggestionsButton: document.querySelector("#toggleSuggestionsButton"),
   toggleFieldsButton: document.querySelector("#toggleFieldsButton"),
@@ -154,6 +155,7 @@ function bindEvents() {
   elements.builderLoadColonButton.addEventListener("click", loadBuilderSampleCsv);
   elements.builderCanvasTab.addEventListener("click", () => switchBuilderView("canvas"));
   elements.builderStoredTab.addEventListener("click", () => switchBuilderView("stored"));
+  elements.builderQuickViewButton.addEventListener("click", () => openCsvQuickView("builder"));
   elements.saveRuleButton.addEventListener("click", saveCurrentRule);
   elements.resetCanvasButton.addEventListener("click", () => {
     state.builder.draft = createBlankRuleDraft();
@@ -474,9 +476,14 @@ async function analyzeBuilderCsv() {
   renderBuilderAnalysis();
 }
 
-async function openCsvQuickView() {
-  if (!state.operations.csvText.trim()) {
-    window.alert("Upload a CSV or load sample data before opening quick view.");
+async function openCsvQuickView(source = "operations") {
+  const csvText = source === "builder" ? state.builder.csvText : state.operations.csvText;
+  if (!String(csvText || "").trim()) {
+    window.alert(
+      source === "builder"
+        ? "Upload a builder CSV or load builder sample data before opening quick view."
+        : "Upload a CSV or load sample data before opening quick view."
+    );
     return;
   }
 
@@ -486,12 +493,13 @@ async function openCsvQuickView() {
       "Content-Type": "application/json"
     },
     body: JSON.stringify({
-      csvText: state.operations.csvText
+      csvText
     })
   });
 
   const data = await response.json();
-  elements.csvQuickViewTitle.textContent = "Uploaded CSV preview";
+  elements.csvQuickViewTitle.textContent =
+    source === "builder" ? "Builder CSV preview" : "Uploaded CSV preview";
   elements.csvQuickViewMeta.textContent = `Showing ${data.previewRows.length} of ${data.totalRows} row(s) across ${data.headers.length} column(s).`;
   elements.csvQuickViewHead.innerHTML = `
     <tr>${data.headers.map((header) => `<th>${escapeHtml(header)}</th>`).join("")}</tr>
