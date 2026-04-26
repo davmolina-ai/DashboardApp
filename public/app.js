@@ -751,8 +751,13 @@ function renderBuilderAnalysis() {
     ? analysis.suggestions
         .map(
           (suggestion, index) => `
-            <article class="suggestion-card">
-              <strong>${escapeHtml(suggestion.name)}</strong>
+            <article class="suggestion-card ${suggestion.suggestionOrigin === "ai" ? "suggestion-card-ai" : "suggestion-card-curated"}">
+              <div class="suggestion-card-header">
+                <strong>${escapeHtml(suggestion.name)}</strong>
+                <span class="suggestion-origin-pill ${suggestion.suggestionOrigin === "ai" ? "suggestion-origin-pill-ai" : "suggestion-origin-pill-curated"}">
+                  ${escapeHtml(suggestion.suggestionOrigin === "ai" ? "Azure AI generated" : "Curated template")}
+                </span>
+              </div>
               <small>${escapeHtml(suggestion.measure)} · ${escapeHtml(suggestion.sourceLabel || "Custom")} · ${escapeHtml(formatSuggestionOrigin(suggestion))}</small>
               <p class="info-copy">${escapeHtml(suggestion.description)}</p>
               <div class="suggestion-values">${renderSuggestionSummary(suggestion)}</div>

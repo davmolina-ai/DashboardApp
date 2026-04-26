@@ -699,6 +699,41 @@ td {
   background: rgba(255, 253, 248, 0.96);
 }
 
+.suggestion-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.suggestion-card-ai {
+  border-color: rgba(13, 107, 97, 0.28);
+  box-shadow: inset 0 0 0 1px rgba(13, 107, 97, 0.08);
+}
+
+.suggestion-origin-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 0.76rem;
+  font-family: "Trebuchet MS", sans-serif;
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+
+.suggestion-origin-pill-ai {
+  background: rgba(13, 107, 97, 0.12);
+  color: var(--accent-strong);
+  border: 1px solid rgba(13, 107, 97, 0.2);
+}
+
+.suggestion-origin-pill-curated {
+  background: rgba(116, 126, 140, 0.12);
+  color: #506070;
+  border: 1px solid rgba(116, 126, 140, 0.16);
+}
+
 .builder-stored-grid {
   display: grid;
   gap: 22px;
