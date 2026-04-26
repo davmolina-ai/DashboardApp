@@ -35,6 +35,7 @@ const elements = {
   rulesetSelect: document.querySelector("#rulesetSelect"),
   loadSampleButton: document.querySelector("#loadSampleButton"),
   runRulesButton: document.querySelector("#runRulesButton"),
+  quickViewButton: document.querySelector("#quickViewButton"),
   exportReportButton: document.querySelector("#exportReportButton"),
   sendOrdersButton: document.querySelector("#sendOrdersButton"),
   addFhirServerButton: document.querySelector("#addFhirServerButton"),
@@ -72,6 +73,12 @@ const elements = {
   builderSelectedNodePanel: document.querySelector("#builderSelectedNodePanel"),
   builderRuleSettingsPanel: document.querySelector("#builderRuleSettingsPanel"),
   storedRulesList: document.querySelector("#storedRulesList"),
+  csvQuickViewDialog: document.querySelector("#csvQuickViewDialog"),
+  csvQuickViewTitle: document.querySelector("#csvQuickViewTitle"),
+  csvQuickViewMeta: document.querySelector("#csvQuickViewMeta"),
+  csvQuickViewHead: document.querySelector("#csvQuickViewHead"),
+  csvQuickViewBody: document.querySelector("#csvQuickViewBody"),
+  closeCsvQuickViewButton: document.querySelector("#closeCsvQuickViewButton"),
   saveRuleButton: document.querySelector("#saveRuleButton"),
   resetCanvasButton: document.querySelector("#resetCanvasButton"),
   addGroupButton: document.querySelector("#addGroupButton"),
@@ -125,10 +132,14 @@ function bindEvents() {
 
   elements.loadSampleButton.addEventListener("click", loadSampleCsv);
   elements.runRulesButton.addEventListener("click", runRules);
+  elements.quickViewButton.addEventListener("click", openCsvQuickView);
   elements.exportReportButton.addEventListener("click", exportRunReport);
   elements.sendOrdersButton.addEventListener("click", sendOrders);
   elements.addFhirServerButton.addEventListener("click", addFhirServer);
   elements.resultsBody.addEventListener("click", handleResultsTableClick);
+  elements.closeCsvQuickViewButton.addEventListener("click", () => {
+    elements.csvQuickViewDialog.close();
+  });
 
   elements.builderCsvFileInput.addEventListener("change", async (event) => {
     const file = event.target.files[0];
@@ -461,6 +472,43 @@ async function analyzeBuilderCsv() {
   elements.builderAnalysisSummary.textContent =
     `Detected ${data.headers.length} fields across the uploaded schema. Drag fields into the canvas or start from a suggested rule.`;
   renderBuilderAnalysis();
+}
+
+async function openCsvQuickView() {
+  if (!state.operations.csvText.trim()) {
+    window.alert("Upload a CSV or load sample data before opening quick view.");
+    return;
+  }
+
+  const response = await fetch("/api/csv/preview", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      csvText: state.operations.csvText
+    })
+  });
+
+  const data = await response.json();
+  elements.csvQuickViewTitle.textContent = "Uploaded CSV preview";
+  elements.csvQuickViewMeta.textContent = `Showing ${data.previewRows.length} of ${data.totalRows} row(s) across ${data.headers.length} column(s).`;
+  elements.csvQuickViewHead.innerHTML = `
+    <tr>${data.headers.map((header) => `<th>${escapeHtml(header)}</th>`).join("")}</tr>
+  `;
+  elements.csvQuickViewBody.innerHTML = data.previewRows.length
+    ? data.previewRows
+        .map(
+          (row) => `
+            <tr>
+              ${data.headers.map((header) => `<td>${escapeHtml(row[header] || "")}</td>`).join("")}
+            </tr>
+          `
+        )
+        .join("")
+    : '<tr><td class="empty-state">No rows available.</td></tr>';
+
+  elements.csvQuickViewDialog.showModal();
 }
 
 function renderRulesetContext() {

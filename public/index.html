@@ -110,6 +110,9 @@
 
             <div class="button-row">
               <button id="runRulesButton">Run rules</button>
+              <button id="quickViewButton" class="ghost-button">
+                Quick view
+              </button>
               <button id="exportReportButton" class="ghost-button" disabled>
                 Export run report
               </button>
@@ -285,6 +288,23 @@
         </section>
       </main>
     </div>
+
+    <dialog id="csvQuickViewDialog" class="app-dialog">
+      <div class="dialog-header">
+        <div>
+          <p class="info-label">CSV quick view</p>
+          <h3 id="csvQuickViewTitle">Uploaded CSV preview</h3>
+        </div>
+        <button id="closeCsvQuickViewButton" class="ghost-button" type="button">Close</button>
+      </div>
+      <p id="csvQuickViewMeta" class="info-copy"></p>
+      <div class="dialog-table-shell">
+        <table class="preview-table">
+          <thead id="csvQuickViewHead"></thead>
+          <tbody id="csvQuickViewBody"></tbody>
+        </table>
+      </div>
+    </dialog>
 
     <script src="/app.js"></script>
   </body>

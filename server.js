@@ -101,6 +101,20 @@ async function handleApi(req, res, url, rulesDb) {
     });
   }
 
+  if (req.method === "POST" && url.pathname === "/api/csv/preview") {
+    const body = await readJson(req, res);
+    if (!body) {
+      return;
+    }
+
+    const analysis = analyzeCsv(body.csvText || "");
+    return sendJson(res, 200, {
+      headers: analysis.headers,
+      previewRows: analysis.rows.slice(0, 25),
+      totalRows: analysis.rows.length
+    });
+  }
+
   if (req.method === "POST" && url.pathname === "/api/rulesets") {
     const body = await readJson(req, res);
     if (!body) {
