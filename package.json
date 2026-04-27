@@ -8,6 +8,7 @@
     "dev": "node --watch server.js"
   },
   "dependencies": {
+    "@azure/identity": "^4.10.1",
     "papaparse": "^5.5.3",
     "sql.js": "^1.14.1"
   }

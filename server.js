@@ -8,6 +8,10 @@ const { getSeedRules, detectClinicalProfile, getRuleSuggestions } = require("./l
 const { analyzeCsv, buildServiceRequest, evaluateRuleset } = require("./lib/rule-engine");
 const { generateAiRuleSuggestions, isLlmConfigured } = require("./lib/llm-suggestions");
 
+//these 2 lines are new
+const { DefaultAzureCredential } = require("@azure/identity");
+const credential = new DefaultAzureCredential();
+
 const PORT = process.env.PORT || 3000;
 const PUBLIC_DIR = path.join(__dirname, "public");
 const DB_DIR = process.env.HOME
@@ -195,6 +199,27 @@ async function handleApi(req, res, url, rulesDb) {
     return sendJson(res, 200, { ok: true });
   }
 
+
+  // this section is new
+  if (req.method === "POST" && url.pathname === "/api/orders/submit-all") {
+    const body = await readJson(req, res);
+    if (!body) return;
+
+    const orders = body.orders || [];
+    if (orders.length === 0) {
+      return sendJson(res, 400, { error: "No orders to submit" });
+    }
+
+    const results = [];
+    for (const order of orders) {
+      const result = await submitToFhir(order.fhirServiceRequest);
+      results.push({ patientName: order.patientName, result });
+    }
+
+    return sendJson(res, 200, { ok: true, submitted: results.length, results });
+  }
+//
+
   return sendJson(res, 404, { error: "Not found" });
 }
 
@@ -282,4 +307,33 @@ function formatDate(value) {
     month: "short",
     day: "numeric"
   });
+}
+
+
+// below is new
+async function getAzureToken() {
+  const FHIR_URL = "https://fhirserverone-fakefhir.fhir.azurehealthcareapis.com";
+  const tokenResponse = await credential.getToken(`${FHIR_URL}/.default`);
+  return tokenResponse.token;
+}
+
+async function submitToFhir(fhirResource) {
+  const FHIR_URL = "https://fhirserverone-fakefhir.fhir.azurehealthcareapis.com";
+  const token = await getAzureToken();
+
+  const response = await fetch(`${FHIR_URL}/Communication`, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${token}`,
+      "Content-Type": "application/fhir+json"
+    },
+    body: JSON.stringify(fhirResource)
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`FHIR server returned ${response.status}: ${text}`);
+  }
+
+  return await response.json();
 }
