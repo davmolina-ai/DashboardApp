@@ -688,7 +688,7 @@ function renderEvaluationRow(item, index) {
       <td>${escapeHtml(item.provider)}</td>
       <td>
         <span class="status-badge ${item.triggered ? "status-match" : "status-skip"}">
-          ${item.triggered ? "Draft recommended" : "No order"}
+          ${item.triggered ? "Draft recommended" : "No message."}
         </span>
       </td>
     </tr>
@@ -903,19 +903,19 @@ function renderBuilderRuleSettingsPanel() {
     </section>
 
     <section class="inspector-section">
-      <h4>Draft order metadata</h4>
+      <h4>Message metadata</h4>
       <div class="inspector-grid">
         <label class="field">
           <span>Gap reason</span>
           <input data-action-field="gapReason" value="${escapeAttribute(action.gapReason || "")}" />
         </label>
         <label class="field">
-          <span>Recommended order</span>
+          <span>Recommended Message</span>
           <input data-action-field="recommendedOrder" value="${escapeAttribute(action.recommendedOrder || "")}" />
         </label>
         <div class="inspector-grid two-up">
           <label class="field">
-            <span>FHIR order code</span>
+            <span>FHIR message code</span>
             <input data-order-field="code" value="${escapeAttribute(action.orderInput?.code || "")}" />
           </label>
           <label class="field">
@@ -1218,7 +1218,7 @@ function addFhirServer() {
   updateSendOrdersState();
 
   if (state.operations.fhirServerUrl === DEFAULT_FHIR_SERVER_URL) {
-    window.alert("FHIR server remains set to the example value. Update it to a real server before sending orders.");
+    window.alert("FHIR server remains set to the example value. Update it to a real server before sending messages.");
     return;
   }
 
@@ -1228,18 +1228,18 @@ function addFhirServer() {
 function sendOrders() {
   const draftableOrders = getDraftableOrders();
   if (draftableOrders.length === 0) {
-    window.alert("No draft orders are available to send.");
+    window.alert("No messages are available to send.");
     return;
   }
 
   if (!hasRealFhirServerUrl()) {
-    window.alert("Please replace the example FHIR server URL with a real server before sending orders.");
+    window.alert("Please replace the example FHIR server URL with a real server before sending messages.");
     return;
   }
 
   const serverUrl = String(state.operations.fhirServerUrl || "").trim();
   window.alert(
-    `${draftableOrders.length} order${draftableOrders.length === 1 ? "" : "s"} would be send it now to the ${serverUrl} FHIR server.`
+    `${draftableOrders.length} message${draftableOrders.length === 1 ? "" : "s"} would be send it now to the ${serverUrl} FHIR server.`
   );
 }
 
@@ -1330,7 +1330,7 @@ function exportReport() {
   }
 
   const rows = [
-    ["Patient", "Patient ID", "Gap", "Recommended Order", "Provider", "Triggered", "Explanation"].join(","),
+    ["Patient", "Patient ID", "Gap", "Recommended Message", "Provider", "Triggered", "Explanation"].join(","),
     ...evaluations.map((item) =>
       [
         csvCell(item.patientName),
@@ -1480,10 +1480,10 @@ function createBlankRuleDraft() {
       action: {
         type: "draftOrder",
         gapReason: "Clinical gap identified by custom ruleset",
-        recommendedOrder: "Draft order recommendation",
+        recommendedOrder: "Message recommendation",
         orderInput: {
           code: "CUSTOM",
-          display: "Custom draft order recommendation",
+          display: "Custom message recommendation",
           occurrenceText: "Review for appropriateness"
         }
       }
@@ -1504,12 +1504,12 @@ function buildClientFallbackServiceRequest(item) {
       display: item.provider || "Unassigned provider"
     },
     code: {
-      text: item.orderInput?.display || item.recommendedOrder || "Draft order recommendation",
+      text: item.orderInput?.display || item.recommendedOrder || "Message recommendation",
       coding: [
         {
           system: "http://example.org/dashboard-to-order-codes",
           code: item.orderInput?.code || "DRAFT",
-          display: item.orderInput?.display || item.recommendedOrder || "Draft order recommendation"
+          display: item.orderInput?.display || item.recommendedOrder || "Message recommendation"
         }
       ]
     },
@@ -1558,7 +1558,7 @@ function renderSuggestionSummary(rule) {
   const lines = summarizeRuleNode(rule.definition?.root || {});
   const action = rule.definition?.action;
   const actionLine = action
-    ? `THEN ${action.recommendedOrder || action.orderInput?.display || "Draft order"} (${action.orderInput?.code || "no code"})`
+    ? `THEN ${action.recommendedOrder || action.orderInput?.display || "Message"} (${action.orderInput?.code || "no code"})`
     : "";
 
   return [...lines.slice(0, 5), actionLine]
