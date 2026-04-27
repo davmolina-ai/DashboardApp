@@ -665,7 +665,7 @@ function renderEvaluation() {
       ? "Awaiting upload"
       : matches === 0
         ? "No patients matched this rule"
-        : `${matches} patient${matches === 1 ? "" : "s"} ready for provider review`;
+        : `${matches} message${matches === 1 ? "" : "s"} ready fto send to FHIR server`;
 
   if (evaluations.length === 0) {
     elements.resultsBody.innerHTML =
@@ -1237,6 +1237,35 @@ function addFhirServer() {
   window.alert(`FHIR server saved: ${state.operations.fhirServerUrl}`);
 }
 
+async function sendOrders() {
+  const draftableOrders = getDraftableOrders();
+  if (draftableOrders.length === 0) {
+    window.alert("No messages are available to send.");
+    return;
+  }
+
+  const response = await fetch("/api/orders/submit-all", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ orders: draftableOrders })
+  });
+
+  const data = await response.json();
+  if (data.ok) {
+    updateSendOrdersState(`${data.submitted} message${data.submitted === 1 ? "" : "s"} successfully sent to EHR`);
+    window.alert(`Success! ${data.submitted} message${data.submitted === 1 ? "" : "s"} were sent to FHIR server and will show up in provider inbox.`);
+    runInsightValue.textContent = `${data.submitted} message${data.submitted === 1 ? "" : "s"} sent to provider inbox.`;
+  } else {
+    updateSendOrdersState(`Error: ${data.error}`);
+    window.alert(`Failure: ${data.error}`);
+  }
+}
+
+
+
+
+
+/*
 function sendOrders() {
   const draftableOrders = getDraftableOrders();
   if (draftableOrders.length === 0) {
@@ -1251,9 +1280,11 @@ function sendOrders() {
 
   const serverUrl = String(state.operations.fhirServerUrl || "").trim();
   window.alert(
-    `${draftableOrders.length} message${draftableOrders.length === 1 ? "" : "s"} would be send it now to the ${serverUrl} FHIR server.`
+    `${draftableOrders.length} message${draftableOrders.length === 1 ? "" : "s"} would be sent now to the ${serverUrl} FHIR server.`
   );
 }
+*/
+
 
 function currentOperationsRuleset() {
   return state.operations.rulesets.find((item) => String(item.id) === String(state.operations.selectedRulesetId)) || null;
