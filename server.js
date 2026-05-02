@@ -14,6 +14,7 @@ const credential = new DefaultAzureCredential();
 
 const PORT = process.env.PORT || 3000;
 const PUBLIC_DIR = path.join(__dirname, "public");
+const DEFAULT_FHIR_SERVER_URL = process.env.FHIR_SERVER_URL || "https://fhirserverone-fakefhir.fhir.azurehealthcareapis.com";
 const DB_DIR = process.env.HOME
   ? path.join(process.env.HOME, "site", "data")
   : path.join(__dirname, ".data");
@@ -191,6 +192,30 @@ async function handleApi(req, res, url, rulesDb) {
     return sendJson(res, 200, { source: saved });
   }
 
+  if (req.method === "POST" && url.pathname === "/api/fhir/query") {
+    const body = await readJson(req, res);
+    if (!body) {
+      return;
+    }
+
+    const serverUrl = normalizeFhirServerUrl(body.serverUrl);
+    const path = resolveFhirQueryPath(body);
+    if (!path) {
+      return sendJson(res, 400, { error: "Provide a patient ID or a custom FHIR path." });
+    }
+
+    try {
+      const payload = await fetchFhirResource(serverUrl, path);
+      return sendJson(res, 200, {
+        serverUrl,
+        path,
+        payload
+      });
+    } catch (error) {
+      return sendJson(res, 500, { error: error.message });
+    }
+  }
+
   if (req.method === "DELETE" && url.pathname.startsWith("/api/rulesets/")) {
     const id = Number(url.pathname.split("/")[3]);
     rulesDb.deleteRuleset(id);
@@ -316,22 +341,66 @@ function formatDate(value) {
 
 // below is new
 async function getAzureToken() {
-  const FHIR_URL = "https://fhirserverone-fakefhir.fhir.azurehealthcareapis.com";
-  const tokenResponse = await credential.getToken(`${FHIR_URL}/.default`);
+  const tokenResponse = await credential.getToken(`${DEFAULT_FHIR_SERVER_URL}/.default`);
   return tokenResponse.token;
 }
 
 async function submitToFhir(fhirResource) {
-  const FHIR_URL = "https://fhirserverone-fakefhir.fhir.azurehealthcareapis.com";
   const token = await getAzureToken();
 
-  const response = await fetch(`${FHIR_URL}/Communication`, {
+  const response = await fetch(`${DEFAULT_FHIR_SERVER_URL}/Communication`, {
     method: "POST",
     headers: {
       "Authorization": `Bearer ${token}`,
       "Content-Type": "application/fhir+json"
     },
     body: JSON.stringify(fhirResource)
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`FHIR server returned ${response.status}: ${text}`);
+  }
+
+  return await response.json();
+}
+
+function normalizeFhirServerUrl(value) {
+  return String(value || DEFAULT_FHIR_SERVER_URL).trim().replace(/\/$/, "") || DEFAULT_FHIR_SERVER_URL;
+}
+
+function resolveFhirQueryPath(body) {
+  const customPath = String(body.path || "").trim().replace(/^\//, "");
+  if (customPath) {
+    return customPath;
+  }
+
+  const resourceType = String(body.resourceType || "Communication").trim() || "Communication";
+  const patientId = String(body.patientId || "").trim();
+  if (!patientId) {
+    return "";
+  }
+
+  if (resourceType === "Patient") {
+    return `Patient/${encodeURIComponent(patientId)}`;
+  }
+
+  return `${resourceType}?subject=Patient/${encodeURIComponent(patientId)}`;
+}
+
+async function getAzureTokenForServer(serverUrl) {
+  const tokenResponse = await credential.getToken(`${serverUrl}/.default`);
+  return tokenResponse.token;
+}
+
+async function fetchFhirResource(serverUrl, resourcePath) {
+  const token = await getAzureTokenForServer(serverUrl);
+  const response = await fetch(`${serverUrl}/${resourcePath}`, {
+    method: "GET",
+    headers: {
+      "Authorization": `Bearer ${token}`,
+      "Accept": "application/fhir+json"
+    }
   });
 
   if (!response.ok) {

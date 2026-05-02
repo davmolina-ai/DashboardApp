@@ -412,6 +412,26 @@ button:disabled {
   border-radius: 18px;
 }
 
+.fhir-explorer-shell {
+  margin-top: 24px;
+  padding: 18px;
+  border-radius: 22px;
+  border: 1px solid rgba(216, 202, 184, 0.9);
+  background: rgba(255, 253, 248, 0.96);
+}
+
+.fhir-json-preview {
+  margin: 12px 0 0;
+  max-height: 560px;
+  overflow: auto;
+  padding: 16px;
+  border-radius: 18px;
+  background: #16222c;
+  color: #eef5f7;
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
 table {
   width: 100%;
   min-width: 1080px;

@@ -9,6 +9,15 @@ const state = {
     expandedEvaluationIndexes: [],
     fhirServerUrl: "https://example-fhir-server.azurehealthcareapis.com"
   },
+  fhirExplorer: {
+    serverUrl: "https://fhirserverone-fakefhir.fhir.azurehealthcareapis.com",
+    resourceType: "Communication",
+    patientId: "",
+    path: "",
+    loading: false,
+    response: null,
+    resolvedPath: ""
+  },
   builder: {
     view: "canvas",
     csvText: "",
@@ -33,8 +42,10 @@ const DEFAULT_FHIR_SERVER_URL = "https://example-fhir-server.azurehealthcareapis
 const elements = {
   operationsTab: document.querySelector("#operationsTab"),
   builderTab: document.querySelector("#builderTab"),
+  fhirExplorerTab: document.querySelector("#fhirExplorerTab"),
   operationsView: document.querySelector("#operationsView"),
   builderView: document.querySelector("#builderView"),
+  fhirExplorerView: document.querySelector("#fhirExplorerView"),
   dashboardNameInput: document.querySelector("#dashboardNameInput"),
   csvFileInput: document.querySelector("#csvFileInput"),
   rulesetSelect: document.querySelector("#rulesetSelect"),
@@ -103,6 +114,18 @@ const elements = {
   addAndGroupButton: document.querySelector("#addAndGroupButton"),
   addOrGroupButton: document.querySelector("#addOrGroupButton"),
   deleteNodeButton: document.querySelector("#deleteNodeButton")
+  ,
+  fhirExplorerServerUrlInput: document.querySelector("#fhirExplorerServerUrlInput"),
+  fhirExplorerResourceTypeSelect: document.querySelector("#fhirExplorerResourceTypeSelect"),
+  fhirExplorerPatientIdInput: document.querySelector("#fhirExplorerPatientIdInput"),
+  fhirExplorerPathInput: document.querySelector("#fhirExplorerPathInput"),
+  fhirExplorerRunButton: document.querySelector("#fhirExplorerRunButton"),
+  fhirExplorerResetButton: document.querySelector("#fhirExplorerResetButton"),
+  fhirExplorerStatusTitle: document.querySelector("#fhirExplorerStatusTitle"),
+  fhirExplorerStatusText: document.querySelector("#fhirExplorerStatusText"),
+  fhirExplorerResolvedPath: document.querySelector("#fhirExplorerResolvedPath"),
+  fhirExplorerMeta: document.querySelector("#fhirExplorerMeta"),
+  fhirExplorerResponsePre: document.querySelector("#fhirExplorerResponsePre")
 };
 
 bootstrap();
@@ -122,6 +145,7 @@ async function bootstrap() {
   updateAnalyzeBuilderButtonState();
   renderStoredRules();
   renderGuidelineSources();
+  renderFhirExplorer();
 }
 
 function bindEvents() {
@@ -130,6 +154,9 @@ function bindEvents() {
   });
   elements.builderTab.addEventListener("click", () => {
     void switchView("builder");
+  });
+  elements.fhirExplorerTab.addEventListener("click", () => {
+    void switchView("fhir-explorer");
   });
 
   elements.dashboardNameInput.addEventListener("input", () => {
@@ -346,6 +373,24 @@ function bindEvents() {
   });
 
   elements.saveGuidelineSourceButton.addEventListener("click", saveGuidelineSource);
+
+  elements.fhirExplorerServerUrlInput.addEventListener("input", () => {
+    state.fhirExplorer.serverUrl = elements.fhirExplorerServerUrlInput.value;
+  });
+  elements.fhirExplorerResourceTypeSelect.addEventListener("change", () => {
+    state.fhirExplorer.resourceType = elements.fhirExplorerResourceTypeSelect.value;
+  });
+  elements.fhirExplorerPatientIdInput.addEventListener("input", () => {
+    state.fhirExplorer.patientId = elements.fhirExplorerPatientIdInput.value;
+  });
+  elements.fhirExplorerPathInput.addEventListener("input", () => {
+    state.fhirExplorer.path = elements.fhirExplorerPathInput.value;
+  });
+  elements.fhirExplorerRunButton.addEventListener("click", runFhirExplorerQuery);
+  elements.fhirExplorerResetButton.addEventListener("click", () => {
+    resetFhirExplorerState();
+    renderFhirExplorer();
+  });
 }
 
 async function switchView(view, options = {}) {
@@ -364,8 +409,10 @@ async function switchView(view, options = {}) {
 
   if (view === "operations") {
     resetOperationsState();
-  } else {
+  } else if (view === "builder") {
     resetBuilderState();
+  } else {
+    resetFhirExplorerState();
   }
 
   state.view = view;
@@ -378,14 +425,19 @@ async function switchView(view, options = {}) {
   renderBuilderSidebarState();
   renderStoredRules();
   renderGuidelineSources();
+  renderFhirExplorer();
 }
 
 function renderCurrentView() {
   const operationsActive = state.view === "operations";
+  const builderActive = state.view === "builder";
+  const explorerActive = state.view === "fhir-explorer";
   elements.operationsTab.classList.toggle("active", operationsActive);
-  elements.builderTab.classList.toggle("active", !operationsActive);
+  elements.builderTab.classList.toggle("active", builderActive);
+  elements.fhirExplorerTab.classList.toggle("active", explorerActive);
   elements.operationsView.classList.toggle("hidden", !operationsActive);
-  elements.builderView.classList.toggle("hidden", operationsActive);
+  elements.builderView.classList.toggle("hidden", !builderActive);
+  elements.fhirExplorerView.classList.toggle("hidden", !explorerActive);
 }
 
 function switchBuilderView(view) {
@@ -440,6 +492,51 @@ async function loadGuidelineSources() {
   state.builder.guidelineSources = data.sources || [];
 }
 
+async function runFhirExplorerQuery() {
+  if (state.fhirExplorer.loading) {
+    return;
+  }
+
+  state.fhirExplorer.loading = true;
+  updateFhirExplorerButtonState();
+  elements.fhirExplorerStatusTitle.textContent = "Running";
+  elements.fhirExplorerStatusText.textContent = "Querying the FHIR server. This can take a few seconds while Azure authentication is completed.";
+
+  try {
+    const response = await fetch("/api/fhir/query", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        serverUrl: state.fhirExplorer.serverUrl,
+        resourceType: state.fhirExplorer.resourceType,
+        patientId: state.fhirExplorer.patientId,
+        path: state.fhirExplorer.path
+      })
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || "FHIR query failed.");
+    }
+
+    state.fhirExplorer.response = data.payload;
+    state.fhirExplorer.resolvedPath = data.path;
+    elements.fhirExplorerStatusTitle.textContent = "Success";
+    elements.fhirExplorerStatusText.textContent = `Received a response from the FHIR server for ${data.path}.`;
+    renderFhirExplorer();
+  } catch (error) {
+    state.fhirExplorer.response = { error: error.message };
+    state.fhirExplorer.resolvedPath = "";
+    elements.fhirExplorerStatusTitle.textContent = "Error";
+    elements.fhirExplorerStatusText.textContent = error.message;
+    renderFhirExplorer();
+  } finally {
+    state.fhirExplorer.loading = false;
+    updateFhirExplorerButtonState();
+  }
+}
+
 async function loadSampleCsv() {
   const response = await fetch("/sample-colon-screening.csv");
   state.operations.csvText = await response.text();
@@ -455,6 +552,26 @@ async function loadBuilderSampleCsv() {
   state.builder.csvText = await response.text();
   elements.builderAnalysisSummary.textContent =
     "Loaded the bundled colon screening CSV. Analyze it to generate suggestions and field chips.";
+}
+
+function renderFhirExplorer() {
+  elements.fhirExplorerServerUrlInput.value = state.fhirExplorer.serverUrl;
+  elements.fhirExplorerResourceTypeSelect.value = state.fhirExplorer.resourceType;
+  elements.fhirExplorerPatientIdInput.value = state.fhirExplorer.patientId;
+  elements.fhirExplorerPathInput.value = state.fhirExplorer.path;
+  elements.fhirExplorerResolvedPath.textContent = state.fhirExplorer.resolvedPath || "Not run yet";
+  elements.fhirExplorerMeta.textContent = state.fhirExplorer.resolvedPath
+    ? "This is the exact FHIR path that was sent to the server."
+    : "The explorer will show the exact relative FHIR path used for the request.";
+  elements.fhirExplorerResponsePre.textContent = state.fhirExplorer.response
+    ? JSON.stringify(state.fhirExplorer.response, null, 2)
+    : "Run a query to inspect the FHIR response.";
+  updateFhirExplorerButtonState();
+}
+
+function updateFhirExplorerButtonState() {
+  elements.fhirExplorerRunButton.disabled = state.fhirExplorer.loading;
+  elements.fhirExplorerRunButton.textContent = state.fhirExplorer.loading ? "Running..." : "Run query";
 }
 
 async function runRules() {
@@ -1332,6 +1449,19 @@ function resetBuilderState() {
     "Upload a CSV to detect fields, identify a clinical profile, and propose starter rules.";
   updateAnalyzeBuilderButtonState();
   switchBuilderView("canvas");
+}
+
+function resetFhirExplorerState() {
+  state.fhirExplorer.serverUrl = "https://fhirserverone-fakefhir.fhir.azurehealthcareapis.com";
+  state.fhirExplorer.resourceType = "Communication";
+  state.fhirExplorer.patientId = "";
+  state.fhirExplorer.path = "";
+  state.fhirExplorer.loading = false;
+  state.fhirExplorer.response = null;
+  state.fhirExplorer.resolvedPath = "";
+  elements.fhirExplorerStatusTitle.textContent = "Ready";
+  elements.fhirExplorerStatusText.textContent =
+    "Choose a resource type and patient ID, or enter a custom relative FHIR path.";
 }
 
 function maybeSuggestDashboardName(fileName = "") {

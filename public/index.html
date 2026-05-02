@@ -33,6 +33,7 @@
       <div class="view-switch" role="tablist" aria-label="App views">
         <button class="view-tab active" id="operationsTab" data-view="operations">Operations</button>
         <button class="view-tab" id="builderTab" data-view="builder">Ruleset Builder</button>
+        <button class="view-tab" id="fhirExplorerTab" data-view="fhir-explorer">FHIR Explorer</button>
       </div>
 
       <main class="layout">
@@ -370,6 +371,75 @@
                 </div>
               </div>
             </section>
+          </section>
+        </section>
+
+        <section id="fhirExplorerView" class="view-panel hidden">
+          <section class="panel">
+            <div class="panel-header">
+              <div>
+                <p class="section-kicker">FHIR Explorer</p>
+                <h2>Query the Azure FHIR server</h2>
+                <p class="panel-copy">
+                  Inspect Patient and Communication resources directly from the configured FHIR server
+                  to verify what the app is sending and what already exists in the server.
+                </p>
+              </div>
+            </div>
+
+            <div class="form-grid">
+              <label class="field">
+                <span>FHIR server URL</span>
+                <input id="fhirExplorerServerUrlInput" type="url" />
+              </label>
+
+              <label class="field">
+                <span>Resource type</span>
+                <select id="fhirExplorerResourceTypeSelect">
+                  <option value="Communication">Communication</option>
+                  <option value="Patient">Patient</option>
+                  <option value="ServiceRequest">ServiceRequest</option>
+                </select>
+              </label>
+
+              <label class="field">
+                <span>Patient ID</span>
+                <input id="fhirExplorerPatientIdInput" type="text" placeholder="53759dc4-4844-070d-a6be-d654ee04e453" />
+              </label>
+
+              <label class="field">
+                <span>Custom path or query (optional)</span>
+                <input id="fhirExplorerPathInput" type="text" placeholder="Communication?subject=Patient/..." />
+              </label>
+            </div>
+
+            <div class="button-row">
+              <button id="fhirExplorerRunButton">Run query</button>
+              <button id="fhirExplorerResetButton" class="ghost-button">Reset</button>
+            </div>
+
+            <section class="context-grid">
+              <article class="info-card accent-card">
+                <p class="info-label">Query status</p>
+                <h3 id="fhirExplorerStatusTitle">Ready</h3>
+                <p id="fhirExplorerStatusText" class="info-copy">
+                  Choose a resource type and patient ID, or enter a custom relative FHIR path.
+                </p>
+              </article>
+
+              <article class="info-card">
+                <p class="info-label">Resolved request</p>
+                <h3 id="fhirExplorerResolvedPath">Not run yet</h3>
+                <p id="fhirExplorerMeta" class="info-copy">
+                  The explorer will show the exact relative FHIR path used for the request.
+                </p>
+              </article>
+            </section>
+
+            <div class="fhir-explorer-shell">
+              <div class="info-copy"><strong>FHIR response preview</strong></div>
+              <pre id="fhirExplorerResponsePre" class="fhir-json-preview">Run a query to inspect the FHIR response.</pre>
+            </div>
           </section>
         </section>
       </main>
