@@ -359,7 +359,25 @@ async function submitToFhir(serverUrl, fhirResource) {
     throw new Error(`FHIR server returned ${response.status}: ${text}`);
   }
 
-  return await response.json();
+  const text = await response.text();
+  if (!text.trim()) {
+    return {
+      ok: true,
+      status: response.status,
+      location: response.headers.get("location") || ""
+    };
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch (error) {
+    return {
+      ok: true,
+      status: response.status,
+      location: response.headers.get("location") || "",
+      rawBody: text
+    };
+  }
 }
 
 function normalizeFhirServerUrl(value) {
