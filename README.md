@@ -227,7 +227,4 @@ If you fork this repository, the most important places to start are:
 
 ## License
 
-License selection is pending. A good default for this repository would be:
-
-- `MIT` if you want the simplest and most fork-friendly open source license
-- `Apache-2.0` if you want a more explicit patent grant and slightly stronger legal structure
+This project is licensed under the MIT License. See [LICENSE](LICENSE).
