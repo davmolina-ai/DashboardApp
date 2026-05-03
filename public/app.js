@@ -947,7 +947,9 @@ function renderBuilderAnalysis() {
 function openAiReasoningDialog(suggestion) {
   elements.aiReasoningTitle.textContent = suggestion.name || "AI suggestion rationale";
   elements.aiReasoningMeta.textContent = [
-    suggestion.suggestionModel ? `Model: ${suggestion.suggestionModel}` : "Model: Azure AI",
+    suggestion.suggestionModel
+      ? `${suggestion.suggestionProviderLabel || "Azure AI"} model: ${suggestion.suggestionModel}`
+      : `Provider: ${suggestion.suggestionProviderLabel || "Azure AI"}`,
     suggestion.measure ? `Measure: ${suggestion.measure}` : "",
     "This view shows the model-provided rationale and grounded rule draft, not hidden chain-of-thought."
   ]
