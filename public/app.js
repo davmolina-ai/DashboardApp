@@ -239,11 +239,11 @@ function bindEvents() {
   });
   elements.builderUseLlmToggle.addEventListener("change", () => {
     state.builder.useLlm = elements.builderUseLlmToggle.checked;
-    renderBuilderLlmBadge(state.builder.analysis?.llm || null);
+    renderBuilderAiActivity();
   });
   elements.builderLlmProviderSelect.addEventListener("change", () => {
     state.builder.llmProvider = elements.builderLlmProviderSelect.value;
-    renderBuilderLlmBadge(state.builder.analysis?.llm || null);
+    renderBuilderAiActivity();
   });
   elements.builderCanvasTab.addEventListener("click", () => switchBuilderView("canvas"));
   elements.builderStoredTab.addEventListener("click", () => switchBuilderView("stored"));
@@ -883,7 +883,7 @@ function renderBuilderAnalysis() {
   const analysis = state.builder.analysis;
   if (!analysis) {
     elements.builderProfileName.textContent = "Not analyzed yet";
-    renderBuilderLlmBadge(null);
+    renderBuilderAiActivity();
     elements.builderProfileSummary.textContent = "The builder will identify a likely clinical profile and surface matching rule suggestions.";
     elements.builderFieldCount.textContent = "0 fields";
     elements.builderSuggestionCount.textContent = "0 suggestions";
@@ -893,7 +893,7 @@ function renderBuilderAnalysis() {
   }
 
   elements.builderProfileName.textContent = formatProfileName(analysis.profile);
-  renderBuilderLlmBadge(analysis.llm);
+  renderBuilderAiActivity();
   elements.builderProfileSummary.textContent =
     analysis.profile === "generic"
       ? "No known clinical template was recognized, so start from a blank canvas and map your own fields."
