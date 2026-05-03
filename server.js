@@ -240,19 +240,27 @@ async function handleApi(req, res, url, rulesDb) {
     const body = await readJson(req, res);
     if (!body) return;
 
-    const serverUrl = normalizeFhirServerUrl(body.serverUrl);
-    const orders = body.orders || [];
-    if (orders.length === 0) {
-      return sendJson(res, 400, { error: "No orders to submit" });
-    }
+    try {
+      const serverUrl = normalizeFhirServerUrl(body.serverUrl);
+      const orders = body.orders || [];
+      if (orders.length === 0) {
+        return sendJson(res, 400, { error: "No orders to submit" });
+      }
 
-    const results = [];
-    for (const order of orders) {
-      const result = await submitToFhir(serverUrl, order.fhirServiceRequest);
-      results.push({ patientName: order.patientName, result });
-    }
+      const results = [];
+      for (const order of orders) {
+        const result = await submitToFhir(serverUrl, order.fhirServiceRequest);
+        results.push({ patientName: order.patientName, result });
+      }
 
-    return sendJson(res, 200, { ok: true, serverUrl, submitted: results.length, results });
+      return sendJson(res, 200, { ok: true, serverUrl, submitted: results.length, results });
+    } catch (error) {
+      console.error("FHIR submit failed:", error);
+      return sendJson(res, 500, {
+        ok: false,
+        error: error.message || "FHIR submission failed"
+      });
+    }
   }
 //
 

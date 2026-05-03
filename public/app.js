@@ -1373,6 +1373,19 @@ function renderSendStatus() {
   }
 }
 
+async function readJsonResponse(response) {
+  const text = await response.text();
+  if (!text.trim()) {
+    return {};
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch (error) {
+    throw new Error(`Received a non-JSON response from the server (status ${response.status}).`);
+  }
+}
+
 function addFhirServer() {
   const currentValue = state.operations.fhirServerUrl || DEFAULT_FHIR_SERVER_URL;
   const enteredUrl = window.prompt("Enter the FHIR server URL.", currentValue);
@@ -1415,7 +1428,7 @@ async function sendOrders() {
       })
     });
 
-    const data = await response.json();
+    const data = await readJsonResponse(response);
     if (!response.ok || !data.ok) {
       throw new Error(data.error || `Submission failed with status ${response.status}`);
     }
