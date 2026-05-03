@@ -432,6 +432,26 @@ button:disabled {
   line-height: 1.45;
 }
 
+.action-status {
+  min-height: 1.5rem;
+  margin-top: -0.35rem;
+}
+
+.action-status.is-running {
+  color: #0f766e;
+  font-weight: 600;
+}
+
+.action-status.is-success {
+  color: #166534;
+  font-weight: 600;
+}
+
+.action-status.is-error {
+  color: #b91c1c;
+  font-weight: 600;
+}
+
 table {
   width: 100%;
   min-width: 1080px;

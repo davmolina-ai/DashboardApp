@@ -234,6 +234,7 @@ async function handleApi(req, res, url, rulesDb) {
     const body = await readJson(req, res);
     if (!body) return;
 
+    const serverUrl = normalizeFhirServerUrl(body.serverUrl);
     const orders = body.orders || [];
     if (orders.length === 0) {
       return sendJson(res, 400, { error: "No orders to submit" });
@@ -241,11 +242,11 @@ async function handleApi(req, res, url, rulesDb) {
 
     const results = [];
     for (const order of orders) {
-      const result = await submitToFhir(order.fhirServiceRequest);
+      const result = await submitToFhir(serverUrl, order.fhirServiceRequest);
       results.push({ patientName: order.patientName, result });
     }
 
-    return sendJson(res, 200, { ok: true, submitted: results.length, results });
+    return sendJson(res, 200, { ok: true, serverUrl, submitted: results.length, results });
   }
 //
 
@@ -340,15 +341,11 @@ function formatDate(value) {
 
 
 // below is new
-async function getAzureToken() {
-  const tokenResponse = await credential.getToken(`${DEFAULT_FHIR_SERVER_URL}/.default`);
-  return tokenResponse.token;
-}
+async function submitToFhir(serverUrl, fhirResource) {
+  const normalizedServerUrl = normalizeFhirServerUrl(serverUrl);
+  const token = await getAzureTokenForServer(normalizedServerUrl);
 
-async function submitToFhir(fhirResource) {
-  const token = await getAzureToken();
-
-  const response = await fetch(`${DEFAULT_FHIR_SERVER_URL}/Communication`, {
+  const response = await fetch(`${normalizedServerUrl}/Communication`, {
     method: "POST",
     headers: {
       "Authorization": `Bearer ${token}`,

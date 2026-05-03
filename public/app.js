@@ -7,7 +7,12 @@ const state = {
     selectedRulesetId: "",
     evaluationResult: null,
     expandedEvaluationIndexes: [],
-    fhirServerUrl: "https://example-fhir-server.azurehealthcareapis.com"
+    fhirServerUrl: "https://example-fhir-server.azurehealthcareapis.com",
+    sendStatus: {
+      tone: "idle",
+      text: "No messages sent yet."
+    },
+    sending: false
   },
   fhirExplorer: {
     serverUrl: "https://fhirserverone-fakefhir.fhir.azurehealthcareapis.com",
@@ -55,6 +60,7 @@ const elements = {
   exportReportButton: document.querySelector("#exportReportButton"),
   sendOrdersButton: document.querySelector("#sendOrdersButton"),
   addFhirServerButton: document.querySelector("#addFhirServerButton"),
+  sendStatusText: document.querySelector("#sendStatusText"),
   resultsBody: document.querySelector("#resultsBody"),
   totalRowsValue: document.querySelector("#totalRowsValue"),
   ruleMatchesValue: document.querySelector("#ruleMatchesValue"),
@@ -138,6 +144,7 @@ async function bootstrap() {
   renderCurrentView();
   renderRulesetContext();
   renderEvaluation();
+  renderSendStatus();
   renderBuilderAnalysis();
   renderBuilderCanvas();
   renderBuilderPanels();
@@ -1330,7 +1337,26 @@ function hasRealFhirServerUrl() {
 }
 
 function updateSendOrdersState() {
-  elements.sendOrdersButton.disabled = !(getDraftableOrders().length > 0 && hasRealFhirServerUrl());
+  const canSend = getDraftableOrders().length > 0 && hasRealFhirServerUrl() && !state.operations.sending;
+  elements.sendOrdersButton.disabled = !canSend;
+  elements.sendOrdersButton.textContent = state.operations.sending ? "Sending..." : "Send Messages";
+}
+
+function setSendStatus(text, tone = "idle") {
+  state.operations.sendStatus = { text, tone };
+  renderSendStatus();
+}
+
+function renderSendStatus() {
+  elements.sendStatusText.textContent = state.operations.sendStatus.text;
+  elements.sendStatusText.classList.remove("is-running", "is-success", "is-error");
+  if (state.operations.sendStatus.tone === "running") {
+    elements.sendStatusText.classList.add("is-running");
+  } else if (state.operations.sendStatus.tone === "success") {
+    elements.sendStatusText.classList.add("is-success");
+  } else if (state.operations.sendStatus.tone === "error") {
+    elements.sendStatusText.classList.add("is-error");
+  }
 }
 
 function addFhirServer() {
@@ -1347,60 +1373,61 @@ function addFhirServer() {
   updateSendOrdersState();
 
   if (state.operations.fhirServerUrl === DEFAULT_FHIR_SERVER_URL) {
-    window.alert("FHIR server remains set to the example value. Update it to a real server before sending messages.");
+    setSendStatus("FHIR server remains set to the example value. Update it to a real server before sending messages.", "error");
     return;
   }
 
-  window.alert(`FHIR server saved: ${state.operations.fhirServerUrl}`);
+  setSendStatus(`FHIR server saved: ${state.operations.fhirServerUrl}`, "success");
 }
 
 async function sendOrders() {
   const draftableOrders = getDraftableOrders();
   if (draftableOrders.length === 0) {
-    window.alert("No messages are available to send.");
-    return;
-  }
-
-  const response = await fetch("/api/orders/submit-all", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ orders: draftableOrders })
-  });
-
-  const data = await response.json();
-  if (data.ok) {
-    updateSendOrdersState(`${data.submitted} message${data.submitted === 1 ? "" : "s"} successfully sent to EHR`);
-    window.alert(`Success! ${data.submitted} message${data.submitted === 1 ? "" : "s"} were sent to FHIR server and will show up in provider inbox.`);
-    runInsightValue.textContent = `${data.submitted} message${data.submitted === 1 ? "" : "s"} sent to provider inbox.`;
-  } else {
-    updateSendOrdersState(`Error: ${data.error}`);
-    window.alert(`Failure: ${data.error}`);
-  }
-}
-
-
-
-
-
-/*
-function sendOrders() {
-  const draftableOrders = getDraftableOrders();
-  if (draftableOrders.length === 0) {
-    window.alert("No messages are available to send.");
+    setSendStatus("No messages are available to send.", "error");
     return;
   }
 
   if (!hasRealFhirServerUrl()) {
-    window.alert("Please replace the example FHIR server URL with a real server before sending messages.");
+    setSendStatus("Add a real FHIR server URL before sending messages.", "error");
     return;
   }
 
-  const serverUrl = String(state.operations.fhirServerUrl || "").trim();
-  window.alert(
-    `${draftableOrders.length} message${draftableOrders.length === 1 ? "" : "s"} would be sent now to the ${serverUrl} FHIR server.`
+  state.operations.sending = true;
+  updateSendOrdersState();
+  setSendStatus(
+    `Sending ${draftableOrders.length} message${draftableOrders.length === 1 ? "" : "s"} to ${state.operations.fhirServerUrl}...`,
+    "running"
   );
+
+  try {
+    const response = await fetch("/api/orders/submit-all", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        serverUrl: state.operations.fhirServerUrl,
+        orders: draftableOrders
+      })
+    });
+
+    const data = await response.json();
+    if (!response.ok || !data.ok) {
+      throw new Error(data.error || `Submission failed with status ${response.status}`);
+    }
+
+    const count = Number(data.submitted || 0);
+    const completedAt = new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+    setSendStatus(
+      `${count} message${count === 1 ? "" : "s"} sent successfully to ${data.serverUrl || state.operations.fhirServerUrl} at ${completedAt}.`,
+      "success"
+    );
+    elements.runInsightValue.textContent = `${count} message${count === 1 ? "" : "s"} sent to provider inbox.`;
+  } catch (error) {
+    setSendStatus(`Send failed: ${error.message}`, "error");
+  } finally {
+    state.operations.sending = false;
+    updateSendOrdersState();
+  }
 }
-*/
 
 
 function currentOperationsRuleset() {
@@ -1417,6 +1444,11 @@ function resetOperationsState() {
   elements.dashboardNameInput.value = state.operations.dashboardName;
   state.operations.selectedRulesetId = "";
   elements.rulesetSelect.value = "";
+  state.operations.sending = false;
+  state.operations.sendStatus = {
+    tone: "idle",
+    text: "No messages sent yet."
+  };
   elements.exportReportButton.disabled = true;
   elements.sendOrdersButton.disabled = true;
   elements.totalRowsValue.textContent = "0";
@@ -1426,6 +1458,7 @@ function resetOperationsState() {
     "No CSV uploaded",
     "Upload a CSV or load the sample data to begin."
   );
+  renderSendStatus();
 }
 
 function resetBuilderState() {
