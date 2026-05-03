@@ -465,6 +465,31 @@
       </div>
     </dialog>
 
+    <dialog id="aiReasoningDialog" class="app-dialog">
+      <div class="dialog-header">
+        <div>
+          <p class="info-label">Azure AI rationale</p>
+          <h3 id="aiReasoningTitle">AI suggestion rationale</h3>
+        </div>
+        <button id="closeAiReasoningButton" class="ghost-button" type="button">Close</button>
+      </div>
+      <p id="aiReasoningMeta" class="info-copy"></p>
+      <div class="dialog-copy-shell">
+        <section class="dialog-copy-block">
+          <h4>Why the model suggested this</h4>
+          <p id="aiReasoningText" class="info-copy"></p>
+        </section>
+        <section class="dialog-copy-block">
+          <h4>Grounding source</h4>
+          <p id="aiReasoningSource" class="info-copy"></p>
+        </section>
+        <section class="dialog-copy-block">
+          <h4>Proposed rule draft</h4>
+          <pre id="aiReasoningJson" class="fhir-json-preview dialog-json-preview"></pre>
+        </section>
+      </div>
+    </dialog>
+
     <script src="/app.js"></script>
   </body>
 </html>

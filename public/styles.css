@@ -608,6 +608,27 @@ td {
   background: var(--panel);
 }
 
+.dialog-copy-shell {
+  display: grid;
+  gap: 18px;
+}
+
+.dialog-copy-block {
+  padding: 16px 18px;
+  border-radius: 18px;
+  border: 1px solid rgba(216, 202, 184, 0.85);
+  background: rgba(255, 253, 248, 0.96);
+}
+
+.dialog-copy-block h4 {
+  margin: 0 0 8px;
+}
+
+.dialog-json-preview {
+  margin-top: 10px;
+  max-height: 320px;
+}
+
 .preview-table {
   width: max-content;
   min-width: 100%;

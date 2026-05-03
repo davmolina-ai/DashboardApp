@@ -115,6 +115,13 @@ const elements = {
   csvQuickViewHead: document.querySelector("#csvQuickViewHead"),
   csvQuickViewBody: document.querySelector("#csvQuickViewBody"),
   closeCsvQuickViewButton: document.querySelector("#closeCsvQuickViewButton"),
+  aiReasoningDialog: document.querySelector("#aiReasoningDialog"),
+  aiReasoningTitle: document.querySelector("#aiReasoningTitle"),
+  aiReasoningMeta: document.querySelector("#aiReasoningMeta"),
+  aiReasoningText: document.querySelector("#aiReasoningText"),
+  aiReasoningSource: document.querySelector("#aiReasoningSource"),
+  aiReasoningJson: document.querySelector("#aiReasoningJson"),
+  closeAiReasoningButton: document.querySelector("#closeAiReasoningButton"),
   saveRuleButton: document.querySelector("#saveRuleButton"),
   resetCanvasButton: document.querySelector("#resetCanvasButton"),
   addAndGroupButton: document.querySelector("#addAndGroupButton"),
@@ -209,6 +216,9 @@ function bindEvents() {
   elements.resultsBody.addEventListener("click", handleResultsTableClick);
   elements.closeCsvQuickViewButton.addEventListener("click", () => {
     elements.csvQuickViewDialog.close();
+  });
+  elements.closeAiReasoningButton.addEventListener("click", () => {
+    elements.aiReasoningDialog.close();
   });
 
   elements.builderCsvFileInput.addEventListener("change", async (event) => {
@@ -315,6 +325,15 @@ function bindEvents() {
   elements.builderRuleSettingsPanel.addEventListener("click", handleInspectorClicks);
 
   elements.builderSuggestionsList.addEventListener("click", (event) => {
+    const reasoningButton = event.target.closest("[data-suggestion-reasoning-index]");
+    if (reasoningButton) {
+      const suggestion = state.builder.analysis?.suggestions?.[Number(reasoningButton.dataset.suggestionReasoningIndex)];
+      if (suggestion) {
+        openAiReasoningDialog(suggestion);
+      }
+      return;
+    }
+
     const button = event.target.closest("[data-suggestion-index]");
     if (!button) {
       return;
@@ -913,6 +932,9 @@ function renderBuilderAnalysis() {
                   : ""
               }
               <div class="button-row compact-row">
+                ${suggestion.suggestionOrigin === "ai"
+                  ? `<button class="ghost-button" data-suggestion-reasoning-index="${index}">View AI rationale</button>`
+                  : ""}
                 <button data-suggestion-index="${index}">Load into canvas</button>
               </div>
             </article>
@@ -920,6 +942,37 @@ function renderBuilderAnalysis() {
         )
         .join("")
     : '<div class="detail-empty">No profile-specific suggestions were found for this CSV yet.</div>';
+}
+
+function openAiReasoningDialog(suggestion) {
+  elements.aiReasoningTitle.textContent = suggestion.name || "AI suggestion rationale";
+  elements.aiReasoningMeta.textContent = [
+    suggestion.suggestionModel ? `Model: ${suggestion.suggestionModel}` : "Model: Azure AI",
+    suggestion.measure ? `Measure: ${suggestion.measure}` : "",
+    "This view shows the model-provided rationale and grounded rule draft, not hidden chain-of-thought."
+  ]
+    .filter(Boolean)
+    .join(" • ");
+  elements.aiReasoningText.textContent =
+    suggestion.rationale || "No rationale text was returned by the model for this suggestion.";
+  if (suggestion.sourceLabel) {
+    elements.aiReasoningSource.innerHTML = suggestion.sourceUrl
+      ? `<a class="source-link" href="${escapeAttribute(suggestion.sourceUrl)}" target="_blank" rel="noreferrer">${escapeHtml(suggestion.sourceLabel)}</a>`
+      : escapeHtml(suggestion.sourceLabel);
+  } else {
+    elements.aiReasoningSource.textContent = "No grounding source was attached to this suggestion.";
+  }
+  elements.aiReasoningJson.textContent = JSON.stringify(
+    {
+      name: suggestion.name,
+      description: suggestion.description,
+      measure: suggestion.measure,
+      definition: suggestion.definition
+    },
+    null,
+    2
+  );
+  elements.aiReasoningDialog.showModal();
 }
 
 function renderBuilderCanvas() {
