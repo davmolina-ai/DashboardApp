@@ -52,6 +52,12 @@ main().catch((error) => {
 });
 
 async function handleApi(req, res, url, rulesDb) {
+  if (req.method === "GET" && url.pathname === "/api/config") {
+    return sendJson(res, 200, {
+      defaultFhirServerUrl: DEFAULT_FHIR_SERVER_URL
+    });
+  }
+
   if (req.method === "GET" && url.pathname === "/api/rulesets") {
     const status = url.searchParams.get("status");
     return sendJson(res, 200, {

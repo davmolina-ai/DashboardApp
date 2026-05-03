@@ -433,8 +433,10 @@ button:disabled {
 }
 
 .action-status {
-  min-height: 1.5rem;
-  margin-top: -0.35rem;
+  min-height: 2rem;
+  margin-top: 0.35rem;
+  margin-bottom: 0.4rem;
+  padding: 0.15rem 0;
 }
 
 .action-status.is-running {

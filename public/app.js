@@ -7,7 +7,7 @@ const state = {
     selectedRulesetId: "",
     evaluationResult: null,
     expandedEvaluationIndexes: [],
-    fhirServerUrl: "https://example-fhir-server.azurehealthcareapis.com",
+    fhirServerUrl: "",
     sendStatus: {
       tone: "idle",
       text: "No messages sent yet."
@@ -15,7 +15,7 @@ const state = {
     sending: false
   },
   fhirExplorer: {
-    serverUrl: "https://fhirserverone-fakefhir.fhir.azurehealthcareapis.com",
+    serverUrl: "",
     resourceType: "Communication",
     patientId: "",
     path: "",
@@ -42,7 +42,7 @@ const state = {
 };
 
 const DEFAULT_DASHBOARD_NAME = "<Add Dasboard name here>";
-const DEFAULT_FHIR_SERVER_URL = "https://example-fhir-server.azurehealthcareapis.com";
+let DEFAULT_FHIR_SERVER_URL = "";
 
 const elements = {
   operationsTab: document.querySelector("#operationsTab"),
@@ -138,6 +138,7 @@ bootstrap();
 
 async function bootstrap() {
   bindEvents();
+  await loadAppConfig();
   await resetDemoSession();
   await Promise.all([loadOperationsRulesets(), loadStoredRulesets(), loadGuidelineSources()]);
   resetOperationsState();
@@ -153,6 +154,19 @@ async function bootstrap() {
   renderStoredRules();
   renderGuidelineSources();
   renderFhirExplorer();
+}
+
+async function loadAppConfig() {
+  try {
+    const response = await fetch("/api/config");
+    const data = await response.json();
+    DEFAULT_FHIR_SERVER_URL = String(data.defaultFhirServerUrl || "").trim();
+  } catch (error) {
+    DEFAULT_FHIR_SERVER_URL = "";
+  }
+
+  state.operations.fhirServerUrl = DEFAULT_FHIR_SERVER_URL;
+  state.fhirExplorer.serverUrl = DEFAULT_FHIR_SERVER_URL;
 }
 
 function bindEvents() {
@@ -1333,7 +1347,7 @@ function getDraftableOrders() {
 
 function hasRealFhirServerUrl() {
   const value = String(state.operations.fhirServerUrl || "").trim();
-  return Boolean(value) && value !== DEFAULT_FHIR_SERVER_URL;
+  return Boolean(value);
 }
 
 function updateSendOrdersState() {
@@ -1360,10 +1374,7 @@ function renderSendStatus() {
 }
 
 function addFhirServer() {
-  const currentValue =
-    state.operations.fhirServerUrl && state.operations.fhirServerUrl !== DEFAULT_FHIR_SERVER_URL
-      ? state.operations.fhirServerUrl
-      : DEFAULT_FHIR_SERVER_URL;
+  const currentValue = state.operations.fhirServerUrl || DEFAULT_FHIR_SERVER_URL;
   const enteredUrl = window.prompt("Enter the FHIR server URL.", currentValue);
   if (enteredUrl === null) {
     return;
@@ -1371,11 +1382,6 @@ function addFhirServer() {
 
   state.operations.fhirServerUrl = String(enteredUrl || "").trim() || DEFAULT_FHIR_SERVER_URL;
   updateSendOrdersState();
-
-  if (state.operations.fhirServerUrl === DEFAULT_FHIR_SERVER_URL) {
-    setSendStatus("FHIR server remains set to the example value. Update it to a real server before sending messages.", "error");
-    return;
-  }
 
   setSendStatus(`FHIR server saved: ${state.operations.fhirServerUrl}`, "success");
 }
@@ -1388,7 +1394,7 @@ async function sendOrders() {
   }
 
   if (!hasRealFhirServerUrl()) {
-    setSendStatus("Add a real FHIR server URL before sending messages.", "error");
+    setSendStatus("Add a FHIR server URL before sending messages.", "error");
     return;
   }
 
@@ -1454,6 +1460,7 @@ function resetOperationsState() {
   elements.totalRowsValue.textContent = "0";
   elements.ruleMatchesValue.textContent = "0";
   elements.runInsightValue.textContent = "Awaiting upload";
+  state.fhirExplorer.serverUrl = DEFAULT_FHIR_SERVER_URL;
   updateFileStatus(
     "No CSV uploaded",
     "Upload a CSV or load the sample data to begin."
