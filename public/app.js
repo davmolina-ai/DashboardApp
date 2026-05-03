@@ -28,7 +28,7 @@ const state = {
     csvText: "",
     profileOverride: "",
     useLlm: false,
-    llmProvider: "phi",
+    llmProvider: "deepseek",
     analysis: null,
     analysisLoading: false,
     storedRules: [],
@@ -80,6 +80,8 @@ const elements = {
   builderUseLlmToggle: document.querySelector("#builderUseLlmToggle"),
   builderLlmProviderSelect: document.querySelector("#builderLlmProviderSelect"),
   builderAnalysisSummary: document.querySelector("#builderAnalysisSummary"),
+  builderAiActivity: document.querySelector("#builderAiActivity"),
+  builderAiActivityText: document.querySelector("#builderAiActivityText"),
   builderProfileName: document.querySelector("#builderProfileName"),
   builderLlmBadge: document.querySelector("#builderLlmBadge"),
   builderProfileSummary: document.querySelector("#builderProfileSummary"),
@@ -680,6 +682,7 @@ async function analyzeBuilderCsv() {
   updateAnalyzeBuilderButtonState();
   elements.builderAnalysisSummary.textContent =
     "Analyzing the CSV and generating suggested rules. This can take a moment while the builder checks the schema and contacts Azure AI.";
+  renderBuilderAiActivity();
 
   try {
     const response = await fetch("/api/builder/analyze", {
@@ -702,6 +705,7 @@ async function analyzeBuilderCsv() {
   } finally {
     state.builder.analysisLoading = false;
     updateAnalyzeBuilderButtonState();
+    renderBuilderAiActivity();
   }
 }
 
@@ -1541,7 +1545,7 @@ function resetBuilderState() {
   state.builder.csvText = "";
   state.builder.profileOverride = "";
   state.builder.useLlm = false;
-  state.builder.llmProvider = "phi";
+  state.builder.llmProvider = "deepseek";
   state.builder.analysis = null;
   state.builder.analysisLoading = false;
   state.builder.draft = createBlankRuleDraft();
@@ -1552,10 +1556,11 @@ function resetBuilderState() {
   elements.builderCsvFileInput.value = "";
   elements.builderProfileOverrideSelect.value = "";
   elements.builderUseLlmToggle.checked = false;
-  elements.builderLlmProviderSelect.value = "phi";
+  elements.builderLlmProviderSelect.value = "deepseek";
   elements.builderAnalysisSummary.textContent =
     "Upload a CSV to detect fields, identify a clinical profile, and propose starter rules.";
   updateAnalyzeBuilderButtonState();
+  renderBuilderAiActivity();
   switchBuilderView("canvas");
 }
 
@@ -1911,6 +1916,12 @@ function buildBuilderAnalysisSummary(analysis) {
 
 function renderBuilderLlmBadge(llmMeta) {
   const badge = elements.builderLlmBadge;
+  if (state.builder.analysisLoading && state.builder.useLlm) {
+    badge.textContent = state.builder.llmProvider === "deepseek" ? "LLM: Running (DeepSeek)" : "LLM: Running";
+    badge.className = "llm-badge llm-badge-running";
+    return;
+  }
+
   if (!state.builder.useLlm) {
     badge.textContent = "LLM: Off";
     badge.className = "llm-badge llm-badge-off";
@@ -1946,6 +1957,18 @@ function renderBuilderLlmBadge(llmMeta) {
 function updateAnalyzeBuilderButtonState() {
   elements.analyzeBuilderCsvButton.disabled = state.builder.analysisLoading;
   elements.analyzeBuilderCsvButton.textContent = state.builder.analysisLoading ? "Analyzing..." : "Analyze CSV";
+}
+
+function renderBuilderAiActivity() {
+  const shouldShow = state.builder.analysisLoading && state.builder.useLlm;
+  elements.builderAiActivity.classList.toggle("hidden", !shouldShow);
+  if (shouldShow) {
+    elements.builderAiActivityText.textContent =
+      state.builder.llmProvider === "deepseek"
+        ? "DeepSeek is analyzing the CSV and drafting suggested rules..."
+        : "Azure AI is analyzing the CSV and drafting suggested rules...";
+  }
+  renderBuilderLlmBadge(state.builder.analysis?.llm || null);
 }
 
 function formatSuggestionOrigin(suggestion) {

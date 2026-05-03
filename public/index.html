@@ -219,7 +219,6 @@
                 <label class="field">
                   <span>LLM provider</span>
                   <select id="builderLlmProviderSelect">
-                    <option value="phi">Phi</option>
                     <option value="deepseek">DeepSeek</option>
                   </select>
                 </label>
@@ -230,6 +229,10 @@
                 <p id="builderAnalysisSummary" class="info-copy">
                   Upload a CSV to detect fields, identify a clinical profile, and propose starter rules.
                 </p>
+                <div id="builderAiActivity" class="builder-ai-activity hidden" aria-live="polite">
+                  <span class="builder-ai-spinner" aria-hidden="true"></span>
+                  <span id="builderAiActivityText">Azure AI is analyzing the CSV and drafting suggestions.</span>
+                </div>
               </article>
 
               <article class="info-card">
