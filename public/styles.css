@@ -967,6 +967,10 @@ td {
   font-size: 0.92rem;
 }
 
+.builder-ai-activity.hidden {
+  display: none;
+}
+
 .builder-ai-spinner {
   width: 18px;
   height: 18px;
